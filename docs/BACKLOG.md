@@ -25,9 +25,24 @@ com critérios de aceite verificáveis.
 | E7 | API REST & Erros | Endpoints, validações e mensagens de erro claras. |
 | E8 | Qualidade | Testes unitários e simulação de carga. |
 
-**Prioridade:** desenvolvimento em ordem de valor/dependência (E1 → E2 → E3 → …).
-
 **Legenda de status:** 🔲 a fazer · 🚧 em progresso · ✅ concluído
+
+## Escopo & Roadmap
+
+Escopo **completo** comprometido no MVP (núcleo + todos os diferenciais). A prioridade
+é a **ordem de implementação**, seguindo dependências:
+
+| Ordem | Bloco | Histórias |
+| ----- | ----- | --------- |
+| 1 | Domínio base | `Coordenada` + distância Manhattan (E5-1), `Pedido`, `Drone` |
+| 2 | Pedidos | E1-1, E1-2, E1-3 (+ persistência JSON) |
+| 3 | Frota | E2-1, E2-2 |
+| 4 | Alocação (núcleo do case) | E3-1, E3-2, E3-3 |
+| 5 | Simulação & estados | E4-1, E4-2, E4-3 |
+| 6 | Zonas de exclusão | E5-2 (pathfinding) |
+| 7 | Dashboard & feedback | E6-1, E6-2 |
+| — | Transversais (ao longo de tudo) | E7-1 erros, E7-2 README, E8-1 testes |
+| 8 | Fechamento | E8-2 simulação de carga |
 
 ---
 
@@ -140,3 +155,154 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 - Dentro de cada viagem, a ordem das entregas usa vizinho mais próximo (nearest-neighbor, ver D12).
 - Por viagem retorna: drone responsável e pedidos (ids); sequência de paradas (base → pontos → base); distância total e carga total.
 - Sem viagens calculadas, retorna lista vazia (não erro).
+
+---
+
+## E4 — Simulação & Estados
+
+> Épico de diferencial — detalhamento mais leve; pontos imaturos marcados como "a refinar".
+
+### E4-1 — Máquina de estados do drone 🔲
+
+> **Como** Sistema, **quero** simular a execução de uma viagem fazendo o drone percorrer
+> os estados `Idle → Carregando → Em voo → Entregando → Retornando → Idle`, **para**
+> refletir de forma realista o ciclo de uma entrega.
+
+**Critérios de aceite:**
+- O drone transita pelos estados na ordem definida; transições inválidas são impedidas.
+- A simulação é orientada a eventos, em tempo simulado (sem sleep real, ver D13).
+- Ao alocar as viagens (E3), a simulação dispara automaticamente para os drones envolvidos.
+- Ao concluir a viagem, o drone volta a `Idle` e os pedidos da viagem passam a `entregue`.
+- _A refinar na implementação:_ durações de cada estado e granularidade dos eventos.
+
+### E4-2 — Tempo de entrega 🔲
+
+> **Como** Operador, **quero** saber o tempo de cada entrega e o tempo total da operação,
+> **para** avaliar a eficiência do sistema.
+
+**Critérios de aceite:**
+- Tempo de voo = distância ÷ velocidade (config), somado a tempos fixos de carregar e entregar (ver D14).
+- Calcula o tempo por entrega (por pedido), o tempo total da operação (makespan) e o tempo médio por entrega.
+- As métricas ficam disponíveis para o dashboard/relatório (E6).
+- _A refinar na implementação:_ velocidade e tempos fixos padrão; tratamento de viagens paralelas entre drones.
+
+### E4-3 — Bateria e recarga automática 🔲
+
+> **Como** Sistema, **quero** simular a bateria do drone, consumindo-a ao operar e
+> recarregando na base, **para** que os drones voltem a carregar quando a bateria fica baixa.
+
+**Critérios de aceite:**
+- Bateria e alcance são o mesmo recurso: bateria cheia equivale a Y km (ver D15).
+- A bateria é consumida proporcionalmente à distância percorrida na viagem.
+- Ao retornar à base (`Idle`), o drone recarrega antes de assumir a próxima viagem.
+- O status do drone (E2-2) reflete o nível de bateria corrente.
+- _A refinar na implementação:_ recarga instantânea vs. por tempo; nível considerado "baixo".
+
+---
+
+## E5 — Restrições Espaciais
+
+> Épico de diferencial — detalhamento mais leve; pontos imaturos marcados como "a refinar".
+
+### E5-1 — Métrica de distância na malha 🔲
+
+> **Como** Sistema, **quero** medir a distância entre dois pontos da malha de forma consistente,
+> **para** que alcance, roteamento e tempo usem a mesma métrica.
+
+**Critérios de aceite:**
+- Distância entre dois pontos usa a métrica Manhattan `|dx| + |dy|` (ver D16).
+- A mesma métrica alimenta a checagem de alcance (D10), o roteamento (D12) e o tempo (D14).
+- Base como referência para "N quadras de distância" (feedback ao cliente, E6).
+
+### E5-2 — Zonas de exclusão aérea 🔲
+
+> **Como** Operador, **quero** definir zonas de exclusão aérea na malha, **para** que os
+> drones não atravessem áreas proibidas ao entregar.
+
+**Critérios de aceite:**
+- Zonas de exclusão são definidas via config e representam células bloqueadas da malha.
+- O trajeto contorna as zonas via pathfinding na grade (BFS/A* Manhattan), aumentando a distância (ver D17).
+- A distância que desvia é a usada nas checagens de alcance/bateria e tempo.
+- Cliente inalcançável (totalmente cercado por zonas) é reportado claramente, sem quebrar a alocação.
+- _A refinar na implementação:_ algoritmo exato (BFS vs A*), formato de declaração das zonas na config.
+
+---
+
+## E6 — Relatórios & Dashboard
+
+> Épico de diferencial — detalhamento mais leve; pontos imaturos marcados como "a refinar".
+
+### E6-1 — Dashboard de métricas 🔲
+
+> **Como** Operador, **quero** um dashboard/relatório com as métricas da operação, **para**
+> avaliar os resultados das entregas de forma visual.
+
+**Critérios de aceite:**
+- Dashboard entregue como página web simples servida pelo backend (ver D18).
+- Exibe: quantidade de entregas realizadas, tempo médio por entrega, drone mais eficiente e um mapa das entregas.
+- "Drone mais eficiente" = entregas concluídas ÷ distância total percorrida (ver D19).
+- O mapa mostra base, clientes, zonas de exclusão (E5) e, idealmente, as rotas.
+- _A refinar na implementação:_ visual do mapa (grade HTML/SVG vs ASCII embutido), atualização estática vs. viva.
+
+### E6-2 — Feedback ao cliente 🔲
+
+> **Como** Cliente, **quero** consultar o status do meu pacote em linguagem amigável, **para**
+> saber quando ele está chegando (ex.: "seu pacote está a 2 quadras").
+
+**Critérios de aceite:**
+- Consulta por `id` do pedido retorna uma mensagem amigável conforme o status.
+- Quando `em voo`, a mensagem inclui a distância atual do drone ao cliente em quadras (métrica Manhattan, D16).
+- Status `entregue` e `pendente`/`alocado` têm mensagens próprias e claras.
+- `id` inexistente retorna erro claro.
+- _A refinar na implementação:_ texto exato das mensagens; faixas (ex.: "chegando" quando ≤ 1 quadra).
+
+---
+
+## E7 — API REST & Erros
+
+### E7-1 — Tratamento de erros consistente 🔲
+
+> **Como** Operador/Cliente, **quero** receber respostas de erro claras e consistentes, **para**
+> entender o que deu errado e como corrigir.
+
+**Critérios de aceite:**
+- Erros retornam JSON padronizado `{ erro: { codigo, mensagem, detalhes? } }` (ver D20).
+- Status HTTP adequado: 400 (validação de entrada), 404 (não encontrado), 422 (regra de negócio).
+- Um middleware central de erro converte exceções de domínio/validação em respostas padronizadas.
+- Erros de validação (Zod, D3) reportam o campo e o motivo de forma clara.
+- Rotas inexistentes retornam 404 padronizado.
+
+### E7-2 — Documentar endpoints no README 🔲
+
+> **Como** Avaliador/Operador, **quero** uma referência clara dos endpoints, **para**
+> entender e testar a API rapidamente.
+
+**Critérios de aceite:**
+- README traz uma tabela de endpoints: método, rota, descrição, corpo esperado e resposta.
+- Inclui exemplos de requisição/resposta para os principais fluxos (cadastrar pedido, ver rota, status).
+- Mantida em dia conforme os endpoints evoluem.
+
+---
+
+## E8 — Qualidade
+
+### E8-1 — Testes unitários das regras 🔲
+
+> **Como** Sistema, **quero** cobertura de testes unitários das regras principais, **para**
+> garantir que a lógica de negócio funciona e não regride.
+
+**Critérios de aceite:**
+- Cobrem a fundo o domínio: distância (Manhattan), alocação greedy, capacidade/alcance, prioridade, estados do drone, bateria.
+- Incluem casos de borda: peso no limite, viagem no limite do alcance, empates de prioridade, cliente inalcançável.
+- Meta de cobertura ~80% no domínio (ver D21); rodável via `npm run coverage`.
+- Testes determinísticos (tempo simulado, D13), sem dependência de relógio real.
+
+### E8-2 — Simulação de carga 🔲
+
+> **Como** Sistema, **quero** validar o comportamento com muitos pedidos de uma vez, **para**
+> garantir que a alocação e a simulação se mantêm corretas e performáticas sob carga.
+
+**Critérios de aceite:**
+- **Correção sob volume:** com centenas/milhares de pedidos (gerados com seed controlável), nenhuma viagem excede capacidade/alcance e todo pedido viável é alocado.
+- **Desempenho:** mede o tempo da alocação para volumes crescentes e verifica que fica dentro de um limite razoável.
+- Resultados reprodutíveis (mesma seed → mesmo cenário).

@@ -10,28 +10,30 @@ entregam a clientes e retornam. O objetivo central é **alocar pacotes nas
 viagens minimizando o número total de viagens**, respeitando capacidade (kg),
 alcance (km) e prioridade das entregas.
 
-**Stack decidida:** Node.js + TypeScript, expondo uma **API REST** e um
-**dashboard/relatório** simples. O escopo cresce por feature: primeiro o núcleo
-(domínio + alocação + testes + API), depois diferenciais (bateria, obstáculos,
-máquina de estados, fila, tempo de entrega).
+**Stack:** Node.js `>= 20.12` (dev no Node 24 LTS) + TypeScript (ESM, `NodeNext`).
+API REST com **Express 4**, validação com **Zod** nas bordas, testes com
+**Vitest 4**. O escopo cresce por feature: primeiro o núcleo (domínio + alocação
++ testes + API), depois diferenciais (bateria, obstáculos, máquina de estados,
+fila, tempo de entrega) e o dashboard/relatório.
 
-> Estado atual: **greenfield**. Ainda não há `package.json` nem código. Os
-> comandos e a estrutura abaixo são o alvo — confirme o que já existe antes de
-> assumir que um script/ferramenta está configurado.
+> ESM `NodeNext`: imports relativos precisam da extensão `.js`
+> (ex.: `import { config } from './config.js'`), mesmo apontando para um `.ts`.
 
-## Comandos (alvo)
+## Comandos
 
 ```bash
-npm install        # instalar dependências
-npm run dev        # rodar API em modo desenvolvimento
-npm run build      # compilar TypeScript -> dist/
-npm start          # rodar build compilado
-npm test           # rodar todos os testes
-npm test -- <arquivo|padrão>   # rodar um teste específico
+npm install            # instalar dependências
+npm run dev            # API em desenvolvimento (tsx watch, hot reload)
+npm run build          # compilar (tsconfig.build.json, exclui testes) -> dist/
+npm start              # rodar o build compilado
+npm test               # rodar todos os testes (vitest run)
+npm test -- <padrão>   # rodar um teste específico por nome/arquivo
+npm run coverage       # testes com cobertura
+npm run typecheck      # checagem de tipos sem emitir (tsc --noEmit)
 ```
 
-> Antes de rodar/citar um comando, verifique os scripts reais em `package.json`;
-> não invente comandos que não existam.
+> `build` usa `tsconfig.build.json` (não compila `*.test.ts`); `typecheck` usa o
+> `tsconfig.json` raiz (inclui os testes).
 
 ## Diretrizes de arquitetura
 

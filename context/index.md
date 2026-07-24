@@ -1,6 +1,6 @@
 # Context Index — case_dti (DroneDelivery)
 
-> Artifact map. Updated: 2026-07-24 (v0.2)
+> Artifact map. Updated: 2026-07-24 (v0.3)
 
 ## Quick Navigation
 
@@ -41,10 +41,12 @@ No artifacts.
 | `.env.example`        | Variáveis de ambiente do simulador              |
 
 ### Documentação
-| File        | Responsibility                                        |
-| ----------- | ----------------------------------------------------- |
-| `README.md` | Descrição do projeto, regras, escopo, execução, API   |
-| `CLAUDE.md` | Guia do Claude Code: comandos e diretrizes de arquitetura |
+| File               | Responsibility                                            |
+| ------------------ | --------------------------------------------------------- |
+| `README.md`        | Descrição do projeto, regras, escopo, execução, API       |
+| `CLAUDE.md`        | Guia do Claude Code: comandos e diretrizes de arquitetura |
+| `docs/BACKLOG.md`  | Épicos, histórias (critérios de aceite) e roadmap         |
+| `docs/DECISIONS.md`| Registro de decisões (ADR) D1–D21 com justificativas      |
 
 ## Tests
 

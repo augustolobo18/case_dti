@@ -1,6 +1,6 @@
 # Timeline — case_dti (DroneDelivery)
 
-> Evolutionary history. 5 phases | Jul/2026.
+> Evolutionary history. 6 phases | Jul/2026.
 
 ## Phase 0: Inicialização (Jul/2026)
 
@@ -45,14 +45,24 @@
 - Corrigido para `string` (parse-don't-validate), o que dispensou o `@ts-expect-error` que o teste precisava.
 - Detalhes: `plans/old/2026-07-25_Ferramental_Qualidade.md`.
 
+## Phase 5: Bloco 2 — gestão de pedidos (Jul/2026)
+
+- Commit: 9a279b8 (PR #5).
+- Épico E1 completo: cadastro, consulta com filtros, busca por id e cancelamento, expostos em 4 rotas REST.
+- Cancelamento virou sub-recurso de ação (`POST /pedidos/:id/cancelar`), não `DELETE`: o pedido permanece no sistema com status `cancelado`.
+- Persistência por porta injetável — arquivo JSON no servidor, memória nos testes; nenhum teste toca o disco.
+- Erros padronizados por middleware central, com o mapa código → HTTP num `Record` exaustivo: código novo sem status quebra o typecheck.
+- Detalhes: `context/walkthroughs/2026-07-25_Walkthrough_Bloco_2_Pedidos.md`.
+
 ## Metrics Snapshot (2026-07-25)
 
 | Métrica            | Valor                          |
 | ------------------ | ------------------------------ |
 | Linguagem          | TypeScript (ESM)               |
 | Runtime            | Node.js 24 LTS (>= 20.12)      |
-| Fases              | ~5 (init + setup + planejamento + bloco 1 + ferramental) |
-| Backlog            | 8 épicos; ADRs em docs/DECISIONS.md |
-| Testes             | passing (~4 arquivos); cobertura do domínio > 80% |
+| Fases              | ~6 (init + setup + planejamento + bloco 1 + ferramental + bloco 2) |
+| Backlog            | 8 épicos; E1 e E7 concluídos; ADRs em docs/DECISIONS.md |
+| API                | 4 rotas de pedido + `/health`  |
+| Testes             | passing (~7 arquivos); domínio e repositório em 100% |
 | Verificação        | typecheck, lint, format, testes e build verdes no CI |
-| Git                | main com 3 PRs mergeados       |
+| Git                | main com 4 PRs mergeados; PR #5 aberto |

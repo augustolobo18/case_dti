@@ -61,9 +61,9 @@ Escopo **completo** comprometido no MVP (núcleo + todos os diferenciais). A pri
 - Prioridade fora do conjunto permitido é rejeitada.
 - Pedidos são persistidos em arquivo JSON (sobrevive a reinício).
 
-**Nota de modelagem:** o pedido tem status próprio `pendente → alocado → em voo → entregue`,
+**Nota de modelagem:** o pedido tem status próprio `pendente → alocado → em_voo → entregue`,
 derivado do estado do drone que o carrega. A máquina de estados completa do drone
-(`Idle → Carregando → Em voo → Entregando → Retornando → Idle`) pertence ao épico E4.
+(`idle → carregando → em_voo → entregando → retornando → idle`) pertence ao épico E4.
 
 ### E1-2 — Consultar pedidos e sua situação 🔲
 
@@ -71,7 +71,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 > **para** acompanhar o que ainda falta entregar.
 
 **Critérios de aceite:**
-- Todo pedido tem status `pendente` → `alocado` → `em voo` → `entregue`.
+- Todo pedido tem status `pendente` → `alocado` → `em_voo` → `entregue`.
 - Listar todos os pedidos cadastrados.
 - Filtrar a listagem por status.
 - Filtrar a listagem por prioridade.
@@ -84,7 +84,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 
 **Critérios de aceite:**
 - Cancelar é permitido apenas enquanto o pedido está `pendente`.
-- Cancelar pedido já `alocado`, `em voo` ou `entregue` é bloqueado, com mensagem clara.
+- Cancelar pedido já `alocado`, `em_voo` ou `entregue` é bloqueado, com mensagem clara.
 - Cancelar `id` inexistente retorna erro claro.
 - Pedido cancelado deixa de aparecer nas listagens de pendentes e não é alocado.
 
@@ -100,7 +100,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 **Critérios de aceite:**
 - A frota é homogênea: todos os drones compartilham a mesma capacidade (X kg) e alcance (Y quadras).
 - Capacidade, alcance e quantidade de drones vêm da config (`.env`), com valores padrão.
-- A frota é criada ao iniciar o sistema; cada drone recebe um `id` único e começa `Idle`.
+- A frota é criada ao iniciar o sistema; cada drone recebe um `id` único e começa `idle`.
 - Não há endpoint de cadastro de drone nesta fase (frota fixa; muda-se via `.env` + reinício).
 
 ### E2-2 — Consultar status da frota 🔲
@@ -110,7 +110,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 
 **Critérios de aceite:**
 - Listar todos os drones com: `id`, `estado`, `posição (x, y)`, `carga atual`/`capacidade`, `bateria`.
-- Drone `Idle` aparece na base, sem carga, bateria cheia.
+- Drone `idle` aparece na base, sem carga, bateria cheia.
 - Também é possível consultar um drone específico por `id`.
 
 **Nota:** `posição` e `carga` passam a variar com a alocação/simulação (E3/E4);
@@ -165,14 +165,14 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 ### E4-1 — Máquina de estados do drone 🔲
 
 > **Como** Sistema, **quero** simular a execução de uma viagem fazendo o drone percorrer
-> os estados `Idle → Carregando → Em voo → Entregando → Retornando → Idle`, **para**
+> os estados `idle → carregando → em_voo → entregando → retornando → idle`, **para**
 > refletir de forma realista o ciclo de uma entrega.
 
 **Critérios de aceite:**
 - O drone transita pelos estados na ordem definida; transições inválidas são impedidas.
 - A simulação é orientada a eventos, em tempo simulado (sem sleep real, ver D13).
 - Ao alocar as viagens (E3), a simulação dispara automaticamente para os drones envolvidos.
-- Ao concluir a viagem, o drone volta a `Idle` e os pedidos da viagem passam a `entregue`.
+- Ao concluir a viagem, o drone volta a `idle` e os pedidos da viagem passam a `entregue`.
 - _A refinar na implementação:_ durações de cada estado e granularidade dos eventos.
 
 ### E4-2 — Tempo de entrega 🔲
@@ -194,7 +194,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 **Critérios de aceite:**
 - Bateria e alcance são o mesmo recurso: bateria cheia equivale a Y quadras (ver D15).
 - A bateria é consumida proporcionalmente à distância percorrida na viagem.
-- Ao retornar à base (`Idle`), o drone recarrega antes de assumir a próxima viagem.
+- Ao retornar à base (`idle`), o drone recarrega antes de assumir a próxima viagem.
 - O status do drone (E2-2) reflete o nível de bateria corrente.
 - _A refinar na implementação:_ recarga instantânea vs. por tempo; nível considerado "baixo".
 
@@ -251,7 +251,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 
 **Critérios de aceite:**
 - Consulta por `id` do pedido retorna uma mensagem amigável conforme o status.
-- Quando `em voo`, a mensagem inclui a distância atual do drone ao cliente em quadras (métrica Manhattan, D16).
+- Quando `em_voo`, a mensagem inclui a distância atual do drone ao cliente em quadras (métrica Manhattan, D16).
 - Status `entregue` e `pendente`/`alocado` têm mensagens próprias e claras.
 - `id` inexistente retorna erro claro.
 - _A refinar na implementação:_ texto exato das mensagens; faixas (ex.: "chegando" quando ≤ 1 quadra).

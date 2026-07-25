@@ -1,6 +1,6 @@
 # MetaSpec — case_dti (DroneDelivery)
 
-> Context for AI agents. Version: 0.5 | Updated: 2026-07-25
+> Context for AI agents. Version: 0.6 | Updated: 2026-07-25
 
 ## IDENTITY
 
@@ -18,6 +18,9 @@ language    TypeScript (ESM, module NodeNext)
 api         REST — Express 4
 validação   Zod (nas bordas da API)
 tests       Vitest 4 (cobertura v8)
+lint        ESLint 9 flat config + typescript-eslint (recommendedTypeChecked)
+format      Prettier 3 (printWidth 100; ignora *.md)
+ci          GitHub Actions em Node 24: typecheck > lint > format > test > build
 dashboard   visualização simples (web ou ASCII)
 ```
 
@@ -51,14 +54,15 @@ POST /pedidos ──> Validação ──> Fila/Repositório de Pedidos
 | Entry      | `src/index.ts`   | Sobe o servidor HTTP                                 |
 | Dashboard  | `src/dashboard/` | Relatório/visualização de métricas e mapa (vazio)    |
 
-## CURRENT STATE (v0.5 — 25/07/2026)
+## CURRENT STATE (v0.6 — 25/07/2026)
 
-- Branch `feat/bloco-1`; bloco 1 do roadmap concluído. Fundação mergeada no `main` via PR #1.
+- Branch `main`; bloco 1 e ferramental de qualidade mergeados (PRs #2 e #3). CI verde.
 - Ready:
   - Domínio base: `Coordenada` + distância Manhattan, `Pedido` e `Drone`/frota, com `ErroDominio` tipado.
   - Tipos imutáveis e funções puras; limites entram por parâmetro e `gerarId` é injetável (testes determinísticos).
   - Testes verdes (config + domínio); cobertura do domínio acima da meta de ~80% (D21).
-  - API Express de pé com `/health`; backlog (8 épicos) e 21 ADRs em `docs/`.
+  - Lint type-aware, formatação determinística e CI a cada push/PR — pipeline verde ponta a ponta.
+  - API Express de pé com `/health`; backlog e registro de decisões (ADR) em `docs/`.
 - Technical debt (ordem do roadmap — `docs/BACKLOG.md`):
   - Bloco 2: persistência JSON de pedidos e endpoints de cadastro/consulta/cancelamento (E1).
   - Blocos 3-4: frota exposta via API e alocação greedy + roteamento nearest-neighbor (E2, E3).
@@ -67,7 +71,7 @@ POST /pedidos ──> Validação ──> Fila/Repositório de Pedidos
 
 ## CRITICAL BUSINESS RULES
 
-> Detalhe e justificativa de cada decisão: `docs/DECISIONS.md` (D1–D21). Escopo: `docs/BACKLOG.md`.
+> Detalhe e justificativa de cada decisão: `docs/DECISIONS.md`. Escopo: `docs/BACKLOG.md`.
 
 - Alocação: heurística greedy; cada viagem respeita capacidade (kg) e alcance (base → entregas → base); minimizar nº de viagens é o objetivo primário.
 - Ordenação: prioridade (alta > média > baixa) → distância → peso (determinística).
@@ -77,3 +81,4 @@ POST /pedidos ──> Validação ──> Fila/Repositório de Pedidos
 - Valores de enum (prioridade, status, estado) são minúsculos, sem acento e em `snake_case` — seguros em JSON e query string.
 - Config coerente exige `4 × cidadeTamanho <= droneAlcanceQuadras` (base na origem); abaixo disso parte da malha nasce inalcançável.
 - Validação: rejeitar peso `<= 0` ou acima da capacidade, e coordenadas fora da malha `0..N`, já no cadastro.
+- Entrada do domínio é não confiável: `DadosNovoPedido` usa primitivos frouxos (`prioridade: string`) e a factory devolve o tipo estreito — parse-don't-validate.

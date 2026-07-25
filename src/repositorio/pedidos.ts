@@ -26,6 +26,13 @@ export type RepositorioPedidos = {
  * Carrega o estado inicial uma única vez e mantém a lista em memória,
  * gravando a cada mutação. Nenhuma regra de negócio é duplicada aqui —
  * o cancelamento delega a `cancelarPedido` do domínio.
+ *
+ * **Premissa: o processo é dono único do arquivo.** O estado é lido uma
+ * única vez no boot; uma edição externa ao arquivo com o servidor de pé é
+ * ignorada em memória e sobrescrita na próxima gravação. Decisão consciente:
+ * reler a cada operação anularia o design em memória para cobrir um cenário
+ * que não existe num simulador de processo único. Deixaria de valer se
+ * houvesse mais de uma instância do processo compartilhando o mesmo arquivo.
  */
 export function criarRepositorioPedidos(persistencia: PersistenciaPedidos): RepositorioPedidos {
   let pedidos: Pedido[] = persistencia.carregar();

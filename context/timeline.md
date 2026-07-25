@@ -1,6 +1,6 @@
 # Timeline — case_dti (DroneDelivery)
 
-> Evolutionary history. 4 phases | Jul/2026.
+> Evolutionary history. 5 phases | Jul/2026.
 
 ## Phase 0: Inicialização (Jul/2026)
 
@@ -36,13 +36,23 @@
 - Defaults de config corrigidos: alcance 20 → 40 quadras, pois `4 × cidadeTamanho` tornava a malha inalcançável.
 - Detalhes: `plans/old/2026-07-25_Bloco_1_Dominio_Base.md`.
 
+## Phase 4: Ferramental de qualidade (Jul/2026)
+
+- Commits: e991dc1, 8d148e0, 83d97e3 (PR #3).
+- ESLint 9 flat config type-aware + Prettier + CI no GitHub Actions, rodando a cada push e PR.
+- Flat config segmentada: type-aware só em `src/`, pois os configs da raiz ficam fora do `include` do tsconfig.
+- O lint achou modelagem incorreta no dia 1: `DadosNovoPedido.prioridade` era `Prioridade`, tipando entrada não confiável.
+- Corrigido para `string` (parse-don't-validate), o que dispensou o `@ts-expect-error` que o teste precisava.
+- Detalhes: `plans/old/2026-07-25_Ferramental_Qualidade.md`.
+
 ## Metrics Snapshot (2026-07-25)
 
 | Métrica            | Valor                          |
 | ------------------ | ------------------------------ |
 | Linguagem          | TypeScript (ESM)               |
 | Runtime            | Node.js 24 LTS (>= 20.12)      |
-| Fases              | ~4 (init + setup + planejamento + bloco 1) |
-| Backlog            | 8 épicos; 21 decisões (ADR)    |
+| Fases              | ~5 (init + setup + planejamento + bloco 1 + ferramental) |
+| Backlog            | 8 épicos; ADRs em docs/DECISIONS.md |
 | Testes             | passing (~4 arquivos); cobertura do domínio > 80% |
-| Git                | main publicado; branch feat/bloco-1 |
+| Verificação        | typecheck, lint, format, testes e build verdes no CI |
+| Git                | main com 3 PRs mergeados       |

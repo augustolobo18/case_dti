@@ -1,6 +1,6 @@
 # Context Index — case_dti (DroneDelivery)
 
-> Artifact map. Updated: 2026-07-25 (v0.5)
+> Artifact map. Updated: 2026-07-25 (v0.6)
 
 ## Quick Navigation
 
@@ -46,6 +46,9 @@ No artifacts.
 | `tsconfig.json`       | TS base (typecheck, inclui testes)              |
 | `tsconfig.build.json` | TS de build (exclui `*.test.ts`)                |
 | `vitest.config.ts`    | Config do Vitest e cobertura                    |
+| `eslint.config.js`    | Flat config; type-aware só em `src/`, prettier por último |
+| `.prettierrc.json`    | Estilo: printWidth 100, aspas simples, vírgula final |
+| `.prettierignore`     | Exclui `*.md` para preservar tabelas alinhadas à mão |
 | `.env.example`        | Variáveis de ambiente do simulador              |
 
 ### Documentação
@@ -54,7 +57,7 @@ No artifacts.
 | `README.md`        | Descrição do projeto, regras, escopo, execução, API       |
 | `CLAUDE.md`        | Guia do Claude Code: comandos e diretrizes de arquitetura |
 | `docs/BACKLOG.md`  | Épicos, histórias (critérios de aceite) e roadmap         |
-| `docs/DECISIONS.md`| Registro de decisões (ADR) D1–D21 com justificativas      |
+| `docs/DECISIONS.md`| Registro de decisões (ADR) com contexto e justificativa   |
 
 ## Tests
 
@@ -64,3 +67,10 @@ No artifacts.
 | Domínio | `src/domain/*.test.ts`   | passing |
 
 > API ainda sem testes — a adicionar com os endpoints do case (bloco 2).
+
+## Infrastructure
+
+| File                        | Description                                              |
+| --------------------------- | -------------------------------------------------------- |
+| `.github/workflows/ci.yml`  | CI em Node 24: typecheck, lint, format, testes e build    |
+| `.env.example`              | Modelo das variáveis de ambiente (copiar para `.env`)     |

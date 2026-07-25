@@ -58,7 +58,7 @@ Cada decisão registra o **contexto**, a **escolha** e o **porquê** (incluindo 
 
 - **Contexto:** o case descreve `Idle → Carregando → Em voo → Entregando → Retornando → Idle`.
 - **Escolha:** essa máquina de estados pertence ao **drone**; o **pedido** tem status próprio
-  `pendente → alocado → em voo → entregue`, derivado do estado do drone que o carrega.
+  `pendente → alocado → em_voo → entregue`, derivado do estado do drone que o carrega.
 - **Porquê:** um pacote nunca fica "Idle" ou "Retornando"; separar os ciclos de vida evita
   modelagem confusa e mantém cada estado com significado.
 
@@ -196,3 +196,37 @@ Cada decisão registra o **contexto**, a **escolha** e o **porquê** (incluindo 
 - **Porquê:** concentra o esforço onde está a lógica de negócio e o valor avaliado; a meta dá um
   alvo objetivo sem perseguir 100% (que traria testes de baixo retorno na camada de API/infra).
 - **Alternativas descartadas:** testar regras sem meta numérica (menos garantia objetiva).
+
+## D22 — Valores de enum em minúsculo, sem acento, `snake_case` ✅
+
+- **Contexto:** três conjuntos de valores atravessam domínio, API e dashboard: prioridade do
+  pedido, status do pedido e estado do drone. O enunciado do case os escreve em prosa
+  (`Idle → Carregando → Em voo`, prioridade `média`), o que não serve como valor de código.
+- **Escolha:** valores canônicos minúsculos, sem acento e sem espaço:
+  - `Prioridade`: `baixa` · `media` · `alta`
+  - `StatusPedido`: `pendente` · `alocado` · `em_voo` · `entregue`
+  - `EstadoDrone`: `idle` · `carregando` · `em_voo` · `entregando` · `retornando`
+- **Porquê:** acento e espaço causam atrito real fora do código — percent-encoding em filtros por
+  query string (`?prioridade=m%C3%A9dia`) e valores com espaço em JSON são fonte de bug bobo. Uma
+  convenção única para os três enums evita ter que lembrar qual deles é a exceção.
+- **Nota:** a prosa da documentação continua escrevendo "média" e "Em voo" naturalmente; a forma
+  canônica vale para valores em código, payloads e query strings — sinalizados por `backticks`.
+- **Alternativas descartadas:** manter os acentos do enunciado (mais bonito na resposta JSON,
+  porém frágil em URL); `camelCase` (destoa de valores de dados, que não são identificadores).
+
+## D23 — Entrada do domínio é não confiável (parse-don't-validate) ✅
+
+- **Contexto:** `criarPedido` valida a prioridade recebida, mas `DadosNovoPedido.prioridade`
+  estava tipado como `Prioridade` — o tipo afirmava que o valor já era válido. O TypeScript então
+  estreitava o ramo de erro para `never`, tratando como inalcançável um caminho que em runtime é
+  alcançável (o dado vem de JSON). O teste da validação só compilava com `@ts-expect-error`.
+- **Escolha:** os tipos de entrada do domínio usam primitivos frouxos — `prioridade: string`,
+  como `x`, `y` e `pesoKg` já eram `number`. A factory valida e devolve o tipo estreito:
+  `Pedido.prioridade` continua sendo `Prioridade`.
+- **Porquê:** o tipo passa a dizer a verdade sobre o que a função aceita. Entra frouxo, sai
+  tipado — o guard vira significativo e o teste deixa de precisar brigar com o compilador.
+  Quando um teste precisa de `@ts-expect-error` para exercitar uma validação, o tipo está mentindo.
+- **Origem:** achado pelo ESLint type-aware (`restrict-template-expressions`) na primeira execução
+  do lint, não por revisão manual.
+- **Alternativas descartadas:** `String(valor)` no template (silencia o sintoma e mantém a
+  incoerência); `eslint-disable` na linha (descarta um achado correto no código mais avaliado).

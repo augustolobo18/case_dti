@@ -60,28 +60,44 @@ capacidade, alcance e priorizando entregas conforme a prioridade.
 
 ## 🛠️ Stack
 
-- **Linguagem:** TypeScript
-- **Runtime:** Node.js
-- **API:** REST (Express/Fastify — a definir)
-- **Testes:** a definir (Jest/Vitest)
+- **Linguagem:** TypeScript (ESM)
+- **Runtime:** Node.js `>= 20.12` (desenvolvido no Node 24 LTS)
+- **API:** REST com Express
+- **Validação:** Zod (nas bordas da API)
+- **Testes:** Vitest (com cobertura v8)
 - **Dashboard:** visualização simples (web ou ASCII)
 
 ---
 
 ## 🚀 Como executar
 
-> _Instruções serão preenchidas conforme o setup do projeto avançar._
+Pré-requisito: **Node.js >= 20.12**.
 
 ```bash
 # instalar dependências
 npm install
 
-# rodar em desenvolvimento
+# rodar em desenvolvimento (hot reload)
 npm run dev
 
 # rodar os testes
 npm test
+
+# cobertura de testes
+npm run coverage
+
+# checagem de tipos (sem emitir)
+npm run typecheck
+
+# build de produção e execução
+npm run build
+npm start
 ```
+
+Variáveis de ambiente (opcionais) em `.env.example` — capacidade/alcance do drone,
+porta e coordenada da base. Copie para `.env` para sobrescrever os padrões.
+
+Health-check: `GET http://localhost:3000/health`.
 
 ---
 

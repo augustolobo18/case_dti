@@ -1,6 +1,6 @@
 # Context Index — case_dti (DroneDelivery)
 
-> Artifact map. Updated: 2026-07-24 (v0.3)
+> Artifact map. Updated: 2026-07-25 (v0.5)
 
 ## Quick Navigation
 
@@ -29,7 +29,15 @@ No artifacts.
 | ------------------- | -------------------------------------------------- |
 | `src/index.ts`      | Entry point; sobe o servidor HTTP                  |
 | `src/api/server.ts` | Cria o app Express; rotas REST (hoje só `/health`) |
-| `src/config.ts`     | Constantes: capacidade, alcance, base, porta (env) |
+| `src/config.ts`     | Constantes: capacidade, alcance, malha, frota, base, porta (env) |
+
+### Domínio
+| File                       | Responsibility                                              |
+| -------------------------- | ----------------------------------------------------------- |
+| `src/domain/erros.ts`      | `ErroDominio` com código tipado; sem referência a HTTP       |
+| `src/domain/coordenada.ts` | Malha 2D, validação `0..N` e distância Manhattan             |
+| `src/domain/pedido.ts`     | Tipo `Pedido`, prioridades, status e factory validante       |
+| `src/domain/drone.ts`      | Tipo `Drone`, estados e criação da frota homogênea           |
 
 ### Config
 | File                  | Responsibility                                  |
@@ -50,8 +58,9 @@ No artifacts.
 
 ## Tests
 
-| Layer  | Directory        | Status  |
-| ------ | ---------------- | ------- |
-| Config | `src/config.test.ts` | passing |
+| Layer   | Directory                | Status  |
+| ------- | ------------------------ | ------- |
+| Config  | `src/config.test.ts`     | passing |
+| Domínio | `src/domain/*.test.ts`   | passing |
 
-> Domínio e API ainda sem testes — a adicionar junto com a implementação.
+> API ainda sem testes — a adicionar com os endpoints do case (bloco 2).

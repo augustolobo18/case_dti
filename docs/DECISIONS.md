@@ -84,7 +84,7 @@ Cada decisão registra o **contexto**, a **escolha** e o **porquê** (incluindo 
 
 ## D10 — Distância da viagem: base → entregas → base ✅
 
-- **Contexto:** cada viagem deve caber no alcance Y km (por carga).
+- **Contexto:** cada viagem deve caber no alcance Y quadras (por carga).
 - **Escolha:** medir o percurso completo da viagem (base → visita aos clientes → volta à base)
   contra o alcance Y.
 - **Porquê:** modelo realista de rota fechada; força considerar a ordem das paradas.
@@ -134,8 +134,8 @@ Cada decisão registra o **contexto**, a **escolha** e o **porquê** (incluindo 
 ## D15 — Bateria = alcance (consome por distância, recarrega na base) ✅
 
 - **Contexto:** o case pede simular bateria (por tempo ou distância) e recarga automática na base;
-  o alcance Y km por carga já limita a viagem (D10).
-- **Escolha:** tratar bateria e alcance como o **mesmo recurso** — bateria cheia = Y km; consumo
+  o alcance Y quadras por carga já limita a viagem (D10).
+- **Escolha:** tratar bateria e alcance como o **mesmo recurso** — bateria cheia = Y quadras; consumo
   proporcional à distância; ao voltar à base (Idle), o drone recarrega antes da próxima viagem.
 - **Porquê:** evita dois conceitos redundantes para a mesma restrição física; mantém coerência
   direta com a alocação (D10) e simplifica a modelagem.
@@ -146,6 +146,8 @@ Cada decisão registra o **contexto**, a **escolha** e o **porquê** (incluindo 
 
 - **Contexto:** a cidade é uma malha de coordenadas; o case usa a metáfora de "quadras".
 - **Escolha:** distância Manhattan `|dx| + |dy|` como métrica única (alcance, roteamento, tempo).
+- **Unidade:** **quadra** — uma unidade da malha equivale a uma quadra. Não se usa km em
+  nenhum ponto do sistema (config, domínio, API e dashboard falam sempre em quadras).
 - **Porquê:** casa com a ideia de deslocamento por quadras em grade e com o feedback "a N quadras";
   uma métrica única mantém coerência entre alocação, rota e tempo.
 - **Alternativas descartadas:** euclidiana (mais realista para voo direto, mas destoa da metáfora de quadras).

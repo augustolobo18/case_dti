@@ -7,7 +7,7 @@ export const PRIORIDADES = ['baixa', 'media', 'alta'] as const;
 export type Prioridade = (typeof PRIORIDADES)[number];
 
 /** Status do ciclo de vida do pedido, distinto da máquina de estados do drone (D7). */
-export const STATUS_PEDIDO = ['pendente', 'alocado', 'em_voo', 'entregue'] as const;
+export const STATUS_PEDIDO = ['pendente', 'alocado', 'em_voo', 'entregue', 'cancelado'] as const;
 export type StatusPedido = (typeof STATUS_PEDIDO)[number];
 
 /** Pedido de entrega, imutável. */
@@ -85,4 +85,21 @@ export function criarPedido(dados: DadosNovoPedido, opcoes: OpcoesPedido): Pedid
 /** Devolve uma nova cópia do pedido com o status alterado, sem mutar o original. */
 export function comStatus(pedido: Pedido, status: StatusPedido): Pedido {
   return { ...pedido, status };
+}
+
+/**
+ * Cancela um pedido, devolvendo uma nova cópia com status `cancelado` (E1-3).
+ * Só é permitido cancelar pedido `pendente`; qualquer outro status (incluindo
+ * já `cancelado`) lança `CANCELAMENTO_NAO_PERMITIDO`. Função pura, não muta a entrada.
+ */
+export function cancelarPedido(pedido: Pedido): Pedido {
+  if (pedido.status !== 'pendente') {
+    throw new ErroDominio(
+      'CANCELAMENTO_NAO_PERMITIDO',
+      `Pedido ${pedido.id} não pode ser cancelado: está com status "${pedido.status}", ` +
+        'só é permitido cancelar pedido "pendente".',
+    );
+  }
+
+  return comStatus(pedido, 'cancelado');
 }

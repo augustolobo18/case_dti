@@ -112,13 +112,77 @@ A cada push e pull request, o CI (GitHub Actions) roda `typecheck`, `lint`,
 
 ---
 
-## 📡 API (planejada)
+## 📡 API
+
+### Implementados (E1 — Gestão de Pedidos)
+
+| Método | Rota                    | Descrição                              | Corpo                                          | Resposta                        |
+| ------ | ----------------------- | --------------------------------------- | ----------------------------------------------- | -------------------------------- |
+| POST   | `/pedidos`              | Cadastra um novo pedido                 | `{ x, y, pesoKg, prioridade }`                  | `201` com o pedido criado         |
+| GET    | `/pedidos`              | Lista pedidos, com filtros opcionais    | —                                                | `200` com array (vazio se nenhum) |
+| GET    | `/pedidos/:id`          | Busca um pedido por `id`                | —                                                | `200` com o pedido; `404` se ausente |
+| POST   | `/pedidos/:id/cancelar` | Cancela um pedido ainda `pendente`      | —                                                | `200` com o pedido `cancelado`    |
+
+`GET /pedidos` aceita `?status=` (`pendente` \| `alocado` \| `em_voo` \| `entregue` \| `cancelado`)
+e `?prioridade=` (`baixa` \| `media` \| `alta`), combináveis.
+
+### Planejados (próximos blocos)
 
 | Método | Rota              | Descrição                                  |
 | ------ | ----------------- | ------------------------------------------ |
-| POST   | `/pedidos`        | Cadastra um novo pedido                    |
 | GET    | `/entregas/rota`  | Retorna as rotas/viagens calculadas        |
 | GET    | `/drones/status`  | Estado atual de cada drone                 |
+
+### Exemplos
+
+**Cadastrar um pedido:**
+
+```bash
+curl -X POST http://localhost:3000/pedidos \
+  -H "Content-Type: application/json" \
+  -d '{"x": 3, "y": 4, "pesoKg": 5, "prioridade": "alta"}'
+```
+
+```json
+{
+  "id": "3c174a9f-390c-4326-8e2b-ec6237baaba8",
+  "destino": { "x": 3, "y": 4 },
+  "pesoKg": 5,
+  "prioridade": "alta",
+  "status": "pendente"
+}
+```
+
+**Listar pedidos pendentes de prioridade alta:**
+
+```bash
+curl "http://localhost:3000/pedidos?status=pendente&prioridade=alta"
+```
+
+**Cancelar um pedido:**
+
+```bash
+curl -X POST http://localhost:3000/pedidos/3c174a9f-390c-4326-8e2b-ec6237baaba8/cancelar
+```
+
+**Resposta de erro padronizada (E7-1):** todo erro segue o mesmo envelope, com o
+status HTTP adequado (`400` entrada malformada, `404` recurso inexistente, `422`
+regra de negócio violada):
+
+```bash
+curl -X POST http://localhost:3000/pedidos \
+  -H "Content-Type: application/json" \
+  -d '{"x": 3, "y": 4, "pesoKg": 999, "prioridade": "alta"}'
+```
+
+```json
+{
+  "erro": {
+    "codigo": "PESO_ACIMA_CAPACIDADE",
+    "mensagem": "Peso de 999kg acima da capacidade do drone (10kg)."
+  }
+}
+```
 
 ---
 

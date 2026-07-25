@@ -27,6 +27,9 @@ pnpm-debug.log*
 coverage/
 .nyc_output/
 
+# Dados de execução (persistência local dos pedidos, D6)
+data/
+
 # Cache de lint/format
 .eslintcache
 

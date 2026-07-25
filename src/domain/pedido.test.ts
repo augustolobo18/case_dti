@@ -72,7 +72,6 @@ describe('criarPedido', () => {
     expect.assertions(2);
     try {
       criarPedido(
-        // @ts-expect-error prioridade inválida testada propositalmente
         { x: 0, y: 0, pesoKg: 1, prioridade: 'urgente' },
         { limites: LIMITES, gerarId: gerarIdFixo },
       );

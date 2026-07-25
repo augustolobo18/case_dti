@@ -1,6 +1,6 @@
 # Context Index — case_dti (DroneDelivery)
 
-> Artifact map. Updated: 2026-07-25 (v0.6)
+> Artifact map. Updated: 2026-07-25 (v0.8)
 
 ## Quick Navigation
 
@@ -17,7 +17,10 @@
 No artifacts.
 
 ### Walkthroughs — context/walkthroughs/
-No artifacts.
+
+| File                                        | Date       | Description                                  | Status |
+| ------------------------------------------- | ---------- | -------------------------------------------- | ------ |
+| `2026-07-25_Walkthrough_Bloco_2_Pedidos.md` | 2026-07-25 | Épico E1 + erros padronizados: camadas, decisões e dívidas | atual  |
 
 ### Plans — plans/
 No artifacts.
@@ -27,9 +30,25 @@ No artifacts.
 ### Código
 | File                | Responsibility                                     |
 | ------------------- | -------------------------------------------------- |
-| `src/index.ts`      | Entry point; sobe o servidor HTTP                  |
-| `src/api/server.ts` | Cria o app Express; rotas REST (hoje só `/health`) |
-| `src/config.ts`     | Constantes: capacidade, alcance, malha, frota, base, porta (env) |
+| `src/index.ts`      | Entry point; compõe persistência → repositório → app. Único lugar que escolhe implementação concreta |
+| `src/config.ts`     | Constantes: capacidade, alcance, malha, frota, base, porta, arquivo de pedidos (env) |
+
+### API
+| File                          | Responsibility                                              |
+| ----------------------------- | ----------------------------------------------------------- |
+| `src/api/server.ts`           | Monta rotas, 404 e middleware de erro (nessa ordem)          |
+| `src/api/rotas/pedidos.ts`    | As 4 rotas de pedido; repassa erros via `next`, sem tratá-los |
+| `src/api/schemas/pedido.ts`   | Zod na borda: valida a forma, não a regra (D3, D23)          |
+| `src/api/erros.ts`            | Mapa código → HTTP e envelope `{ erro: {...} }` (D20)        |
+| `src/api/middleware-erros.ts` | Handler central de erro e 404 de rota inexistente            |
+
+### Persistência
+| File                               | Responsibility                                          |
+| ---------------------------------- | ------------------------------------------------------- |
+| `src/infra/persistencia-pedidos.ts`| Porta `carregar`/`salvar`; impl. de arquivo (atômica, validante) e de memória |
+| `src/infra/schema-pedido.ts`       | Schema do pedido já persistido; enums vindos do domínio    |
+| `src/infra/erros.ts`               | `ErroPersistencia` — falha de I/O, não de regra de negócio  |
+| `src/repositorio/pedidos.ts`       | Lista em memória, grava a cada mutação, filtros de listagem |
 
 ### Domínio
 | File                       | Responsibility                                              |
@@ -61,12 +80,15 @@ No artifacts.
 
 ## Tests
 
-| Layer   | Directory                | Status  |
-| ------- | ------------------------ | ------- |
-| Config  | `src/config.test.ts`     | passing |
-| Domínio | `src/domain/*.test.ts`   | passing |
+| Layer        | Directory                            | Status  |
+| ------------ | ------------------------------------ | ------- |
+| Config       | `src/config.test.ts`                 | passing |
+| Domínio      | `src/domain/*.test.ts`               | passing |
+| Persistência | `src/infra/*.test.ts`                | passing |
+| Repositório  | `src/repositorio/*.test.ts`          | passing |
+| API          | `src/api/rotas/*.test.ts` (supertest)| passing |
 
-> API ainda sem testes — a adicionar com os endpoints do case (bloco 2).
+> Testes usam a persistência em memória — nenhum escreve em disco.
 
 ## Infrastructure
 

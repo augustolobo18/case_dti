@@ -23,4 +23,7 @@ export const config = {
     x: Number(process.env.BASE_X ?? 0),
     y: Number(process.env.BASE_Y ?? 0),
   },
+
+  /** Caminho do arquivo JSON onde os pedidos são persistidos localmente (D6). */
+  pedidosArquivo: process.env.PEDIDOS_ARQUIVO ?? 'data/pedidos.json',
 } as const;

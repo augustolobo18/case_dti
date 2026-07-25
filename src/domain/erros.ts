@@ -11,7 +11,9 @@ export type CodigoErroDominio =
   | 'PESO_INVALIDO'
   | 'PESO_ACIMA_CAPACIDADE'
   | 'PRIORIDADE_INVALIDA'
-  | 'QUANTIDADE_DRONES_INVALIDA';
+  | 'QUANTIDADE_DRONES_INVALIDA'
+  | 'PEDIDO_NAO_ENCONTRADO'
+  | 'CANCELAMENTO_NAO_PERMITIDO';
 
 /** Erro lançado quando uma regra do domínio é violada. */
 export class ErroDominio extends Error {

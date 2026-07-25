@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ErroDominio } from './erros.js';
-import { criarPedido, comStatus, type LimitesPedido } from './pedido.js';
+import { criarPedido, comStatus, cancelarPedido, type LimitesPedido } from './pedido.js';
 
 const LIMITES: LimitesPedido = { capacidadeKg: 10, cidadeTamanho: 10 };
 const gerarIdFixo = () => 'id-fixo-teste';
@@ -117,4 +117,40 @@ describe('comStatus', () => {
     expect(original.status).toBe('pendente');
     expect(atualizado).not.toBe(original);
   });
+});
+
+describe('cancelarPedido', () => {
+  it('cancela um pedido pendente, devolvendo nova cópia sem mutar o original', () => {
+    const original = criarPedido(
+      { x: 0, y: 0, pesoKg: 1, prioridade: 'baixa' },
+      { limites: LIMITES, gerarId: gerarIdFixo },
+    );
+
+    const cancelado = cancelarPedido(original);
+
+    expect(cancelado.status).toBe('cancelado');
+    expect(original.status).toBe('pendente');
+    expect(cancelado).not.toBe(original);
+  });
+
+  it.each(['alocado', 'em_voo', 'entregue', 'cancelado'] as const)(
+    'rejeita cancelar pedido com status "%s" com CANCELAMENTO_NAO_PERMITIDO',
+    (status) => {
+      expect.assertions(2);
+      const pedido = comStatus(
+        criarPedido(
+          { x: 0, y: 0, pesoKg: 1, prioridade: 'baixa' },
+          { limites: LIMITES, gerarId: gerarIdFixo },
+        ),
+        status,
+      );
+
+      try {
+        cancelarPedido(pedido);
+      } catch (erro) {
+        expect(erro).toBeInstanceOf(ErroDominio);
+        expect((erro as ErroDominio).codigo).toBe('CANCELAMENTO_NAO_PERMITIDO');
+      }
+    },
+  );
 });

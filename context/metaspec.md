@@ -1,6 +1,6 @@
 # MetaSpec — case_dti (DroneDelivery)
 
-> Context for AI agents. Version: 0.6 | Updated: 2026-07-25
+> Context for AI agents. Version: 0.8 | Updated: 2026-07-25
 
 ## IDENTITY
 
@@ -17,7 +17,8 @@ runtime     Node.js >= 20.12 (dev no Node 24 LTS)
 language    TypeScript (ESM, module NodeNext)
 api         REST — Express 4
 validação   Zod (nas bordas da API)
-tests       Vitest 4 (cobertura v8)
+tests       Vitest 4 (cobertura v8) + supertest (endpoints, sem porta real)
+persistência arquivo JSON local via porta injetável (sem banco)
 lint        ESLint 9 flat config + typescript-eslint (recommendedTypeChecked)
 format      Prettier 3 (printWidth 100; ignora *.md)
 ci          GitHub Actions em Node 24: typecheck > lint > format > test > build
@@ -26,10 +27,10 @@ dashboard   visualização simples (web ou ASCII)
 
 ## ARCHITECTURE
 
-Fluxo alvo (parcialmente implementado — hoje só o esqueleto da API):
+Fluxo alvo (E1 implementado; alocação e simulação pendentes):
 
 ```
-POST /pedidos ──> Validação ──> Fila/Repositório de Pedidos
+POST /pedidos ──> Zod (forma) ──> Domínio (regra) ──> Repositório ──> JSON
                                        │
                                        v
                               Algoritmo de Alocação
@@ -45,29 +46,37 @@ POST /pedidos ──> Validação ──> Fila/Repositório de Pedidos
                     GET /entregas/rota · GET /drones/status · Dashboard
 ```
 
-| Layer      | Directory        | Responsibility                                        |
-| ---------- | ---------------- | ---------------------------------------------------- |
-| Config     | `src/config.ts`  | Constantes: capacidade, alcance, malha, frota, base, porta (env) |
-| Domínio    | `src/domain/`    | `Coordenada` + distância, `Pedido`, `Drone`/frota, `ErroDominio` |
-| Alocação   | `src/domain/`    | Algoritmo de alocação de pacotes por viagem (pendente) |
-| API        | `src/api/`       | Express; endpoints REST (casca fina sobre o domínio) |
-| Entry      | `src/index.ts`   | Sobe o servidor HTTP                                 |
-| Dashboard  | `src/dashboard/` | Relatório/visualização de métricas e mapa (vazio)    |
+Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementações concretas.
 
-## CURRENT STATE (v0.6 — 25/07/2026)
+| Layer       | Directory          | Responsibility                                       |
+| ----------- | ------------------ | ---------------------------------------------------- |
+| Config      | `src/config.ts`    | Constantes: capacidade, alcance, malha, frota, base, porta, arquivo de pedidos (env) |
+| Domínio     | `src/domain/`      | `Coordenada` + distância, `Pedido`, `Drone`/frota, `ErroDominio` |
+| Alocação    | `src/domain/`      | Algoritmo de alocação de pacotes por viagem (pendente) |
+| Persistência| `src/infra/`       | Porta `carregar`/`salvar`, implementações de arquivo JSON e de memória, schema e erro próprios |
+| Repositório | `src/repositorio/` | Estado dos pedidos em memória, gravando a cada mutação; delega regra ao domínio |
+| API         | `src/api/`         | Express; rotas, schemas Zod, mapa erro→HTTP e middleware central |
+| Entry       | `src/index.ts`     | Compõe persistência → repositório → app e sobe o HTTP |
+| Dashboard   | `src/dashboard/`   | Relatório/visualização de métricas e mapa (vazio)    |
 
-- Branch `main`; bloco 1 e ferramental de qualidade mergeados (PRs #2 e #3). CI verde.
+## CURRENT STATE (v0.8 — 25/07/2026)
+
+- Branch `feat/bloco-2` aberta em PR #5 (CI verde), aguardando merge na `main`.
 - Ready:
   - Domínio base: `Coordenada` + distância Manhattan, `Pedido` e `Drone`/frota, com `ErroDominio` tipado.
   - Tipos imutáveis e funções puras; limites entram por parâmetro e `gerarId` é injetável (testes determinísticos).
-  - Testes verdes (config + domínio); cobertura do domínio acima da meta de ~80% (D21).
+  - Épico E1 completo: cadastro, consulta com filtros, busca por id e cancelamento de pedidos.
+  - Pedidos sobrevivem a reinício — persistência JSON write-through, com escrita atômica.
+  - Arquivo de pedidos validado por schema ao carregar; corrompido, o boot falha sem tocar no arquivo.
+  - Erros padronizados `{ erro: { codigo, mensagem, detalhes? } }` por middleware central (E7-1).
+  - Testes verdes em domínio, persistência, repositório e endpoints; domínio e repositório em 100%.
   - Lint type-aware, formatação determinística e CI a cada push/PR — pipeline verde ponta a ponta.
-  - API Express de pé com `/health`; backlog e registro de decisões (ADR) em `docs/`.
+  - Detalhes do bloco: `context/walkthroughs/2026-07-25_Walkthrough_Bloco_2_Pedidos.md`.
 - Technical debt (ordem do roadmap — `docs/BACKLOG.md`):
-  - Bloco 2: persistência JSON de pedidos e endpoints de cadastro/consulta/cancelamento (E1).
   - Blocos 3-4: frota exposta via API e alocação greedy + roteamento nearest-neighbor (E2, E3).
   - Blocos 5-8: simulação de estados, zonas de exclusão, dashboard e simulação de carga.
-  - Status `cancelado` do pedido ainda não modelado — entra com a regra de cancelamento (E1-3).
+  - Status `alocado`, `em_voo` e `entregue` existem no tipo, mas nada os produz até os blocos 4-5.
+  - `GET /pedidos` sem paginação — irrelevante hoje, vira ponto de atenção na simulação de carga (E8-2).
 
 ## CRITICAL BUSINESS RULES
 
@@ -77,8 +86,12 @@ POST /pedidos ──> Validação ──> Fila/Repositório de Pedidos
 - Ordenação: prioridade (alta > média > baixa) → distância → peso (determinística).
 - Distância: métrica Manhattan `|dx| + |dy|`. A unidade é a **quadra** — nunca km, em nenhum ponto do sistema.
 - Bateria e alcance são o mesmo recurso: bateria cheia equivale ao alcance total.
-- Status do pedido (`pendente → alocado → em_voo → entregue`) é distinto da máquina de estados do drone.
+- Status do pedido (`pendente → alocado → em_voo → entregue`, mais `cancelado`) é distinto da máquina de estados do drone.
+- Cancelamento só é permitido a partir de `pendente`; cancelar em qualquer outro status — inclusive já `cancelado` — é erro, não no-op.
+- Erro → HTTP: 400 é entrada malformada, 422 é entrada válida que viola regra de negócio, 404 é inexistente. O mapa é único, em `src/api/erros.ts` — rota nenhuma escolhe status.
 - Valores de enum (prioridade, status, estado) são minúsculos, sem acento e em `snake_case` — seguros em JSON e query string.
 - Config coerente exige `4 × cidadeTamanho <= droneAlcanceQuadras` (base na origem); abaixo disso parte da malha nasce inalcançável.
 - Validação: rejeitar peso `<= 0` ou acima da capacidade, e coordenadas fora da malha `0..N`, já no cadastro.
 - Entrada do domínio é não confiável: `DadosNovoPedido` usa primitivos frouxos (`prioridade: string`) e a factory devolve o tipo estreito — parse-don't-validate.
+- O arquivo de pedidos também é entrada não confiável: é validado por schema ao carregar e nunca é apagado, renomeado ou regravado quando inválido.
+- O processo é dono único do arquivo: o estado é lido uma vez no boot; edição externa com o servidor de pé é ignorada e sobrescrita.

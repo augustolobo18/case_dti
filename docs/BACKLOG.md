@@ -98,7 +98,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 > definidos, **para** que o sistema tenha veículos disponíveis para as entregas.
 
 **Critérios de aceite:**
-- A frota é homogênea: todos os drones compartilham a mesma capacidade (X kg) e alcance (Y km).
+- A frota é homogênea: todos os drones compartilham a mesma capacidade (X kg) e alcance (Y quadras).
 - Capacidade, alcance e quantidade de drones vêm da config (`.env`), com valores padrão.
 - A frota é criada ao iniciar o sistema; cada drone recebe um `id` único e começa `Idle`.
 - Não há endpoint de cadastro de drone nesta fase (frota fixa; muda-se via `.env` + reinício).
@@ -128,7 +128,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 
 **Critérios de aceite:**
 - Aloca apenas pedidos `pendente`; cada viagem respeita a capacidade (X kg) do drone.
-- A distância da viagem (base → entregas → base) não pode exceder o alcance (Y km).
+- A distância da viagem (base → entregas → base) não pode exceder o alcance (Y quadras).
 - Heurística greedy: ordena os pedidos e encaixa cada um na viagem enquanto couber (ver D9).
 - Objetivo: minimizar o número de viagens geradas.
 - Pedidos alocados passam a `alocado` e ficam vinculados a uma viagem/drone.
@@ -192,7 +192,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 > recarregando na base, **para** que os drones voltem a carregar quando a bateria fica baixa.
 
 **Critérios de aceite:**
-- Bateria e alcance são o mesmo recurso: bateria cheia equivale a Y km (ver D15).
+- Bateria e alcance são o mesmo recurso: bateria cheia equivale a Y quadras (ver D15).
 - A bateria é consumida proporcionalmente à distância percorrida na viagem.
 - Ao retornar à base (`Idle`), o drone recarrega antes de assumir a próxima viagem.
 - O status do drone (E2-2) reflete o nível de bateria corrente.

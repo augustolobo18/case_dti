@@ -19,7 +19,7 @@ viagem.
 ### Regras básicas
 
 - **Capacidade:** cada drone suporta até `X` kg por carga.
-- **Alcance:** cada drone percorre até `Y` km por carga (ida + entregas + volta).
+- **Alcance:** cada drone percorre até `Y` quadras por carga (ida + entregas + volta).
 - **Pedidos:** cada pedido possui:
   - Localização do cliente `(x, y)`
   - Peso do pacote (kg)

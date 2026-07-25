@@ -8,7 +8,7 @@ Simulador de entregas por drone (desafio técnico de processo seletivo). A cidad
 é uma malha de coordenadas 2D; drones partem de uma base, carregam pacotes,
 entregam a clientes e retornam. O objetivo central é **alocar pacotes nas
 viagens minimizando o número total de viagens**, respeitando capacidade (kg),
-alcance (km) e prioridade das entregas.
+alcance (quadras) e prioridade das entregas.
 
 **Stack:** Node.js `>= 20.12` (dev no Node 24 LTS) + TypeScript (ESM, `NodeNext`).
 API REST com **Express 4**, validação com **Zod** nas bordas, testes com

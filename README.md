@@ -89,6 +89,14 @@ npm run coverage
 # checagem de tipos (sem emitir)
 npm run typecheck
 
+# lint (ESLint) e correção automática
+npm run lint
+npm run lint:fix
+
+# formatação (Prettier) e apenas verificação
+npm run format
+npm run format:check
+
 # build de produção e execução
 npm run build
 npm start
@@ -98,6 +106,9 @@ Variáveis de ambiente (opcionais) em `.env.example` — capacidade/alcance do d
 porta e coordenada da base. Copie para `.env` para sobrescrever os padrões.
 
 Health-check: `GET http://localhost:3000/health`.
+
+A cada push e pull request, o CI (GitHub Actions) roda `typecheck`, `lint`,
+`format:check`, `test` e `build`, nessa ordem.
 
 ---
 

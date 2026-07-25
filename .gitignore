@@ -27,6 +27,9 @@ pnpm-debug.log*
 coverage/
 .nyc_output/
 
+# Cache de lint/format
+.eslintcache
+
 # Sistema operacional
 .DS_Store
 Thumbs.db

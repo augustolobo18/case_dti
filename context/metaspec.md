@@ -1,6 +1,6 @@
 # MetaSpec — case_dti (DroneDelivery)
 
-> Context for AI agents. Version: 0.7 | Updated: 2026-07-25
+> Context for AI agents. Version: 0.8 | Updated: 2026-07-25
 
 ## IDENTITY
 
@@ -53,13 +53,13 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 | Config      | `src/config.ts`    | Constantes: capacidade, alcance, malha, frota, base, porta, arquivo de pedidos (env) |
 | Domínio     | `src/domain/`      | `Coordenada` + distância, `Pedido`, `Drone`/frota, `ErroDominio` |
 | Alocação    | `src/domain/`      | Algoritmo de alocação de pacotes por viagem (pendente) |
-| Persistência| `src/infra/`       | Porta `carregar`/`salvar` + implementações de arquivo JSON e de memória |
+| Persistência| `src/infra/`       | Porta `carregar`/`salvar`, implementações de arquivo JSON e de memória, schema e erro próprios |
 | Repositório | `src/repositorio/` | Estado dos pedidos em memória, gravando a cada mutação; delega regra ao domínio |
 | API         | `src/api/`         | Express; rotas, schemas Zod, mapa erro→HTTP e middleware central |
 | Entry       | `src/index.ts`     | Compõe persistência → repositório → app e sobe o HTTP |
 | Dashboard   | `src/dashboard/`   | Relatório/visualização de métricas e mapa (vazio)    |
 
-## CURRENT STATE (v0.7 — 25/07/2026)
+## CURRENT STATE (v0.8 — 25/07/2026)
 
 - Branch `feat/bloco-2` aberta em PR #5 (CI verde), aguardando merge na `main`.
 - Ready:
@@ -67,6 +67,7 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
   - Tipos imutáveis e funções puras; limites entram por parâmetro e `gerarId` é injetável (testes determinísticos).
   - Épico E1 completo: cadastro, consulta com filtros, busca por id e cancelamento de pedidos.
   - Pedidos sobrevivem a reinício — persistência JSON write-through, com escrita atômica.
+  - Arquivo de pedidos validado por schema ao carregar; corrompido, o boot falha sem tocar no arquivo.
   - Erros padronizados `{ erro: { codigo, mensagem, detalhes? } }` por middleware central (E7-1).
   - Testes verdes em domínio, persistência, repositório e endpoints; domínio e repositório em 100%.
   - Lint type-aware, formatação determinística e CI a cada push/PR — pipeline verde ponta a ponta.
@@ -74,10 +75,8 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 - Technical debt (ordem do roadmap — `docs/BACKLOG.md`):
   - Blocos 3-4: frota exposta via API e alocação greedy + roteamento nearest-neighbor (E2, E3).
   - Blocos 5-8: simulação de estados, zonas de exclusão, dashboard e simulação de carga.
-  - `carregar()` não valida a forma do JSON — arquivo corrompido derruba o boot ou entra malformado.
-  - Repositório lê o arquivo uma vez no boot; edição externa com o servidor de pé é ignorada e sobrescrita.
-  - `src/infra/` sem teste da escrita real em disco (~47% de cobertura) — validado só à mão.
   - Status `alocado`, `em_voo` e `entregue` existem no tipo, mas nada os produz até os blocos 4-5.
+  - `GET /pedidos` sem paginação — irrelevante hoje, vira ponto de atenção na simulação de carga (E8-2).
 
 ## CRITICAL BUSINESS RULES
 
@@ -94,3 +93,5 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 - Config coerente exige `4 × cidadeTamanho <= droneAlcanceQuadras` (base na origem); abaixo disso parte da malha nasce inalcançável.
 - Validação: rejeitar peso `<= 0` ou acima da capacidade, e coordenadas fora da malha `0..N`, já no cadastro.
 - Entrada do domínio é não confiável: `DadosNovoPedido` usa primitivos frouxos (`prioridade: string`) e a factory devolve o tipo estreito — parse-don't-validate.
+- O arquivo de pedidos também é entrada não confiável: é validado por schema ao carregar e nunca é apagado, renomeado ou regravado quando inválido.
+- O processo é dono único do arquivo: o estado é lido uma vez no boot; edição externa com o servidor de pé é ignorada e sobrescrita.

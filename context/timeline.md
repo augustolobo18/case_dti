@@ -52,6 +52,8 @@
 - Cancelamento virou sub-recurso de ação (`POST /pedidos/:id/cancelar`), não `DELETE`: o pedido permanece no sistema com status `cancelado`.
 - Persistência por porta injetável — arquivo JSON no servidor, memória nos testes; nenhum teste toca o disco.
 - Erros padronizados por middleware central, com o mapa código → HTTP num `Record` exaustivo: código novo sem status quebra o typecheck.
+- Duas dívidas do próprio bloco fechadas em seguida (87226b8): schema valida o arquivo ao carregar, e o I/O real ganhou teste em diretório temporário.
+- Terceira dívida rebaixada a limitação documentada — reler o arquivo por operação anularia o design em memória sem cobrir cenário real.
 - Detalhes: `context/walkthroughs/2026-07-25_Walkthrough_Bloco_2_Pedidos.md`.
 
 ## Metrics Snapshot (2026-07-25)
@@ -63,6 +65,6 @@
 | Fases              | ~6 (init + setup + planejamento + bloco 1 + ferramental + bloco 2) |
 | Backlog            | 8 épicos; E1 e E7 concluídos; ADRs em docs/DECISIONS.md |
 | API                | 4 rotas de pedido + `/health`  |
-| Testes             | passing (~7 arquivos); domínio e repositório em 100% |
+| Testes             | passing (~7 arquivos); domínio, repositório e persistência em 100% |
 | Verificação        | typecheck, lint, format, testes e build verdes no CI |
 | Git                | main com 4 PRs mergeados; PR #5 aberto |

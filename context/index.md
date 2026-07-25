@@ -1,6 +1,6 @@
 # Context Index — case_dti (DroneDelivery)
 
-> Artifact map. Updated: 2026-07-25 (v0.7)
+> Artifact map. Updated: 2026-07-25 (v0.8)
 
 ## Quick Navigation
 
@@ -45,7 +45,9 @@ No artifacts.
 ### Persistência
 | File                               | Responsibility                                          |
 | ---------------------------------- | ------------------------------------------------------- |
-| `src/infra/persistencia-pedidos.ts`| Porta `carregar`/`salvar`; impl. de arquivo (atômica) e de memória |
+| `src/infra/persistencia-pedidos.ts`| Porta `carregar`/`salvar`; impl. de arquivo (atômica, validante) e de memória |
+| `src/infra/schema-pedido.ts`       | Schema do pedido já persistido; enums vindos do domínio    |
+| `src/infra/erros.ts`               | `ErroPersistencia` — falha de I/O, não de regra de negócio  |
 | `src/repositorio/pedidos.ts`       | Lista em memória, grava a cada mutação, filtros de listagem |
 
 ### Domínio

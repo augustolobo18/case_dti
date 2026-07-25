@@ -1,0 +1,12 @@
+# Não formatar Markdown — preserva tabelas alinhadas à mão
+*.md
+
+# Build / saída de compilação
+dist/
+
+# Cobertura de testes
+coverage/
+
+# Dependências e lockfile
+node_modules/
+package-lock.json

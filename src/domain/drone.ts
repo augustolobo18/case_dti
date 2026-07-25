@@ -7,13 +7,7 @@ import type { Coordenada } from './coordenada.js';
  * (`idle -> carregando -> em_voo -> entregando -> retornando -> idle`).
  * Este bloco modela apenas o tipo; as transições ficam para o Bloco 5 (E4-1).
  */
-export const ESTADOS_DRONE = [
-  'idle',
-  'carregando',
-  'em_voo',
-  'entregando',
-  'retornando',
-] as const;
+export const ESTADOS_DRONE = ['idle', 'carregando', 'em_voo', 'entregando', 'retornando'] as const;
 export type EstadoDrone = (typeof ESTADOS_DRONE)[number];
 
 /** Drone da frota, imutável. */

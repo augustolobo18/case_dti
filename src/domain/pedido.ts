@@ -19,12 +19,12 @@ export type Pedido = {
   readonly status: StatusPedido;
 };
 
-/** Dados brutos de entrada para o cadastro de um novo pedido. */
+/** Dados brutos de entrada para o cadastro de um novo pedido (entrada não confiável). */
 export type DadosNovoPedido = {
   readonly x: number;
   readonly y: number;
   readonly pesoKg: number;
-  readonly prioridade: Prioridade;
+  readonly prioridade: string;
 };
 
 /** Limites operacionais necessários para validar um pedido. */

@@ -67,4 +67,4 @@
 | API                | 4 rotas de pedido + `/health`  |
 | Testes             | passing (~7 arquivos); domínio, repositório e persistência em 100% |
 | Verificação        | typecheck, lint, format, testes e build verdes no CI |
-| Git                | main com 4 PRs mergeados; PR #5 aberto |
+| Git                | main com 5 PRs mergeados; sem branch de feature aberta |

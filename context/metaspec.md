@@ -1,6 +1,6 @@
 # MetaSpec — case_dti (DroneDelivery)
 
-> Context for AI agents. Version: 0.8 | Updated: 2026-07-25
+> Context for AI agents. Version: 0.9 | Updated: 2026-07-25
 
 ## IDENTITY
 
@@ -59,9 +59,9 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 | Entry       | `src/index.ts`     | Compõe persistência → repositório → app e sobe o HTTP |
 | Dashboard   | `src/dashboard/`   | Relatório/visualização de métricas e mapa (vazio)    |
 
-## CURRENT STATE (v0.8 — 25/07/2026)
+## CURRENT STATE (v0.9 — 25/07/2026)
 
-- Branch `feat/bloco-2` aberta em PR #5 (CI verde), aguardando merge na `main`.
+- Branch `main`; blocos 1 e 2 mergeados (PRs #2 a #5). CI verde. Próximo: bloco 3 (frota, E2).
 - Ready:
   - Domínio base: `Coordenada` + distância Manhattan, `Pedido` e `Drone`/frota, com `ErroDominio` tipado.
   - Tipos imutáveis e funções puras; limites entram por parâmetro e `gerarId` é injetável (testes determinísticos).

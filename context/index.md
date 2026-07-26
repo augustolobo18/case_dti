@@ -1,6 +1,6 @@
 # Context Index — case_dti (DroneDelivery)
 
-> Artifact map. Updated: 2026-07-25 (v0.8)
+> Artifact map. Updated: 2026-07-26 (v0.9)
 
 ## Quick Navigation
 
@@ -20,7 +20,8 @@ No artifacts.
 
 | File                                        | Date       | Description                                  | Status |
 | ------------------------------------------- | ---------- | -------------------------------------------- | ------ |
-| `2026-07-25_Walkthrough_Bloco_2_Pedidos.md` | 2026-07-25 | Épico E1 + erros padronizados: camadas, decisões e dívidas | atual  |
+| `2026-07-26_Walkthrough_Bloco_3_Frota.md`   | 2026-07-26 | Épico E2: frota da config, rotas de drone e ADR D24 | atual  |
+| `2026-07-25_Walkthrough_Bloco_2_Pedidos.md` | 2026-07-25 | Épico E1 + erros padronizados: camadas, decisões e dívidas | anterior |
 
 ### Plans — plans/
 No artifacts.
@@ -36,8 +37,10 @@ No artifacts.
 ### API
 | File                          | Responsibility                                              |
 | ----------------------------- | ----------------------------------------------------------- |
-| `src/api/server.ts`           | Monta rotas, 404 e middleware de erro (nessa ordem)          |
+| `src/api/server.ts`           | Recebe `Dependencias`; monta rotas, 404 e middleware de erro (nessa ordem) |
 | `src/api/rotas/pedidos.ts`    | As 4 rotas de pedido; repassa erros via `next`, sem tratá-los |
+| `src/api/rotas/drones.ts`     | As 2 rotas de consulta da frota (E2-2)                       |
+| `src/api/apresentadores/drone.ts` | `RespostaDrone`: campos do domínio + `bateriaPercentual` derivado |
 | `src/api/schemas/pedido.ts`   | Zod na borda: valida a forma, não a regra (D3, D23)          |
 | `src/api/erros.ts`            | Mapa código → HTTP e envelope `{ erro: {...} }` (D20)        |
 | `src/api/middleware-erros.ts` | Handler central de erro e 404 de rota inexistente            |
@@ -49,6 +52,7 @@ No artifacts.
 | `src/infra/schema-pedido.ts`       | Schema do pedido já persistido; enums vindos do domínio    |
 | `src/infra/erros.ts`               | `ErroPersistencia` — falha de I/O, não de regra de negócio  |
 | `src/repositorio/pedidos.ts`       | Lista em memória, grava a cada mutação, filtros de listagem |
+| `src/repositorio/frota.ts`         | Frota montada da config no boot; consulta apenas, sem persistência (D24) |
 
 ### Domínio
 | File                       | Responsibility                                              |
@@ -56,7 +60,7 @@ No artifacts.
 | `src/domain/erros.ts`      | `ErroDominio` com código tipado; sem referência a HTTP       |
 | `src/domain/coordenada.ts` | Malha 2D, validação `0..N` e distância Manhattan             |
 | `src/domain/pedido.ts`     | Tipo `Pedido`, prioridades, status e factory validante       |
-| `src/domain/drone.ts`      | Tipo `Drone`, estados e criação da frota homogênea           |
+| `src/domain/drone.ts`      | Tipo `Drone`, estados, frota homogênea e gerador de id sequencial |
 
 ### Config
 | File                  | Responsibility                                  |
@@ -87,6 +91,8 @@ No artifacts.
 | Persistência | `src/infra/*.test.ts`                | passing |
 | Repositório  | `src/repositorio/*.test.ts`          | passing |
 | API          | `src/api/rotas/*.test.ts` (supertest)| passing |
+
+> Toda implementação segue TDD: o teste falha antes do código que o faz passar.
 
 > Testes usam a persistência em memória — nenhum escreve em disco.
 

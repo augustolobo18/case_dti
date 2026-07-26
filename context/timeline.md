@@ -1,6 +1,6 @@
 # Timeline — case_dti (DroneDelivery)
 
-> Evolutionary history. 6 phases | Jul/2026.
+> Evolutionary history. 7 phases | Jul/2026.
 
 ## Phase 0: Inicialização (Jul/2026)
 
@@ -56,15 +56,25 @@
 - Terceira dívida rebaixada a limitação documentada — reler o arquivo por operação anularia o design em memória sem cobrir cenário real.
 - Detalhes: `context/walkthroughs/2026-07-25_Walkthrough_Bloco_2_Pedidos.md`.
 
-## Metrics Snapshot (2026-07-25)
+## Phase 6: Bloco 3 — frota de drones (Jul/2026)
+
+- Commit: b686cf4 (branch `feat/bloco-3`).
+- Épico E2 completo: frota criada da config no boot e exposta em `GET /drones` e `GET /drones/:id`.
+- Primeira implementação inteiramente em TDD — teste vermelho pelo motivo certo antes de cada tarefa de produção.
+- Ids de drone passaram a ser sequenciais (`drone-1`…`drone-N`): `randomUUID` mudava a cada boot e deixaria órfão o `droneId` que o bloco 4 vai persistir (D24).
+- Frota não é persistida — é derivada da config, evitando reconciliar arquivo salvo com `.env` alterado.
+- `criarApp` passou a receber um objeto de dependências, para o bloco 4 somar `viagens` sem novo parâmetro posicional.
+- Detalhes: `context/walkthroughs/2026-07-26_Walkthrough_Bloco_3_Frota.md`.
+
+## Metrics Snapshot (2026-07-26)
 
 | Métrica            | Valor                          |
 | ------------------ | ------------------------------ |
 | Linguagem          | TypeScript (ESM)               |
 | Runtime            | Node.js 24 LTS (>= 20.12)      |
-| Fases              | ~6 (init + setup + planejamento + bloco 1 + ferramental + bloco 2) |
-| Backlog            | 8 épicos; E1 e E7 concluídos; ADRs em docs/DECISIONS.md |
-| API                | 4 rotas de pedido + `/health`  |
-| Testes             | passing (~7 arquivos); domínio, repositório e persistência em 100% |
+| Fases              | ~7 (init + setup + planejamento + bloco 1 + ferramental + blocos 2-3) |
+| Backlog            | 8 épicos; E1, E2 e E7 concluídos; ADRs em docs/DECISIONS.md |
+| API                | 4 rotas de pedido + 2 de drone + `/health` |
+| Testes             | passing (~9 arquivos); cobertura total ~98% |
 | Verificação        | typecheck, lint, format, testes e build verdes no CI |
-| Git                | main com 5 PRs mergeados; sem branch de feature aberta |
+| Git                | main com 5 PRs mergeados; `feat/bloco-3` aberta, PR pendente |

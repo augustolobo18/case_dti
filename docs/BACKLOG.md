@@ -120,7 +120,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 
 ## E3 — Alocação & Otimização
 
-### E3-1 — Alocar pedidos em viagens (greedy) 🔲
+### E3-1 — Alocar pedidos em viagens (greedy) ✅
 
 > **Como** Sistema, **quero** agrupar os pedidos pendentes em viagens de drone
 > respeitando capacidade e alcance, **para** entregar tudo com o menor número de
@@ -134,7 +134,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 - Pedidos alocados passam a `alocado` e ficam vinculados a uma viagem/drone.
 - Pedido que não cabe em nenhuma viagem viável é reportado claramente (não some silenciosamente).
 
-### E3-2 — Priorizar pedidos na alocação 🔲
+### E3-2 — Priorizar pedidos na alocação ✅
 
 > **Como** Sistema, **quero** priorizar quais pedidos entram primeiro nas viagens,
 > com base em prioridade, peso e distância, **para** que as entregas mais importantes
@@ -145,7 +145,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 - Pedidos de prioridade `alta` nunca ficam atrás de `média`/`baixa` que caibam na mesma viagem.
 - O critério de desempate é determinístico (mesma entrada → mesma ordem).
 
-### E3-3 — Consultar viagens/rotas calculadas 🔲
+### E3-3 — Consultar viagens/rotas calculadas ✅
 
 > **Como** Operador, **quero** consultar as viagens/rotas calculadas, **para** ver
 > como os pacotes foram distribuídos entre os drones e o trajeto de cada viagem.

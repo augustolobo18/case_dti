@@ -14,7 +14,12 @@ export type CodigoErroDominio =
   | 'QUANTIDADE_DRONES_INVALIDA'
   | 'PEDIDO_NAO_ENCONTRADO'
   | 'CANCELAMENTO_NAO_PERMITIDO'
-  | 'DRONE_NAO_ENCONTRADO';
+  | 'DRONE_NAO_ENCONTRADO'
+  | 'VIAGEM_ACIMA_CAPACIDADE'
+  | 'VIAGEM_ACIMA_ALCANCE'
+  | 'VIAGEM_SEM_PEDIDOS'
+  | 'FROTA_VAZIA'
+  | 'ALOCACAO_NAO_PERMITIDA';
 
 /** Erro lançado quando uma regra do domínio é violada. */
 export class ErroDominio extends Error {

@@ -2,17 +2,20 @@ import express, { type Express } from 'express';
 import { rotaNaoEncontrada, tratarErros } from './middleware-erros.js';
 import { criarRotasPedidos } from './rotas/pedidos.js';
 import { criarRotasDrones } from './rotas/drones.js';
+import { criarRotasEntregas } from './rotas/entregas.js';
 import type { RepositorioPedidos } from '../repositorio/pedidos.js';
 import type { RepositorioFrota } from '../repositorio/frota.js';
+import type { RepositorioViagens } from '../repositorio/viagens.js';
 
 /**
  * Repositórios injetados na aplicação. Um objeto — em vez de parâmetros
- * posicionais — para que blocos futuros (ex.: viagens no Bloco 4) acrescentem
- * dependências sem virar mais um parâmetro solto.
+ * posicionais — para que blocos futuros acrescentem dependências sem virar
+ * mais um parâmetro solto.
  */
 export type Dependencias = {
   readonly pedidos: RepositorioPedidos;
   readonly frota: RepositorioFrota;
+  readonly viagens: RepositorioViagens;
 };
 
 /**
@@ -31,8 +34,14 @@ export function criarApp(dependencias: Dependencias): Express {
 
   app.use('/pedidos', criarRotasPedidos(dependencias.pedidos));
   app.use('/drones', criarRotasDrones(dependencias.frota));
-
-  // TODO: GET /entregas/rota
+  app.use(
+    '/entregas',
+    criarRotasEntregas({
+      pedidos: dependencias.pedidos,
+      frota: dependencias.frota,
+      viagens: dependencias.viagens,
+    }),
+  );
 
   // 404 de rota inexistente e middleware de erro sempre por último (a ordem importa no Express).
   app.use(rotaNaoEncontrada);

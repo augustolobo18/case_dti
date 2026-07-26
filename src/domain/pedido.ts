@@ -103,3 +103,37 @@ export function cancelarPedido(pedido: Pedido): Pedido {
 
   return comStatus(pedido, 'cancelado');
 }
+
+/**
+ * Aloca um pedido em uma viagem, devolvendo uma nova cópia com status
+ * `alocado` (E3-1). Só é permitido alocar pedido `pendente`; qualquer outro
+ * status lança `ALOCACAO_NAO_PERMITIDA`. Função pura, não muta a entrada.
+ */
+export function alocarPedido(pedido: Pedido): Pedido {
+  if (pedido.status !== 'pendente') {
+    throw new ErroDominio(
+      'ALOCACAO_NAO_PERMITIDA',
+      `Pedido ${pedido.id} não pode ser alocado: está com status "${pedido.status}", ` +
+        'só é permitido alocar pedido "pendente".',
+    );
+  }
+
+  return comStatus(pedido, 'alocado');
+}
+
+/**
+ * Reverte um pedido alocado de volta a `pendente` (D27 — reconciliação de
+ * viagem órfã no boot). Só é permitido reverter pedido `alocado`; qualquer
+ * outro status lança `ALOCACAO_NAO_PERMITIDA`. Função pura, não muta a entrada.
+ */
+export function reverterParaPendente(pedido: Pedido): Pedido {
+  if (pedido.status !== 'alocado') {
+    throw new ErroDominio(
+      'ALOCACAO_NAO_PERMITIDA',
+      `Pedido ${pedido.id} não pode voltar a pendente: está com status "${pedido.status}", ` +
+        'só é permitido reverter pedido "alocado".',
+    );
+  }
+
+  return comStatus(pedido, 'pendente');
+}

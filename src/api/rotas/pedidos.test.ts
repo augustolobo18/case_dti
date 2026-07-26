@@ -5,8 +5,10 @@ import { criarApp } from '../server.js';
 import type { CorpoErro } from '../erros.js';
 import { criarPedido, type Pedido, type LimitesPedido } from '../../domain/pedido.js';
 import { criarPersistenciaMemoria } from '../../infra/persistencia-pedidos.js';
+import { criarPersistenciaMemoria as criarPersistenciaMemoriaViagens } from '../../infra/persistencia-viagens.js';
 import { criarRepositorioPedidos, type RepositorioPedidos } from '../../repositorio/pedidos.js';
 import { criarRepositorioFrota, type OpcoesFrota } from '../../repositorio/frota.js';
+import { criarRepositorioViagens } from '../../repositorio/viagens.js';
 
 const LIMITES: LimitesPedido = { capacidadeKg: 10, cidadeTamanho: 10 };
 const OPCOES_FROTA: OpcoesFrota = {
@@ -38,7 +40,11 @@ let contador = 0;
 beforeEach(() => {
   repositorio = criarRepositorioPedidos(criarPersistenciaMemoria());
   const frota = criarRepositorioFrota(OPCOES_FROTA);
-  app = criarApp({ pedidos: repositorio, frota });
+  const viagens = criarRepositorioViagens({
+    persistencia: criarPersistenciaMemoriaViagens(),
+    droneIds: frota.listar().map((d) => d.id),
+  });
+  app = criarApp({ pedidos: repositorio, frota, viagens });
   contador = 0;
 });
 

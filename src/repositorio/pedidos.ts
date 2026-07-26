@@ -1,6 +1,8 @@
 import { ErroDominio } from '../domain/erros.js';
 import {
+  alocarPedido,
   cancelarPedido,
+  reverterParaPendente as reverterPedidoParaPendente,
   type Pedido,
   type Prioridade,
   type StatusPedido,
@@ -19,6 +21,8 @@ export type RepositorioPedidos = {
   buscarPorId(id: string): Pedido;
   adicionar(pedido: Pedido): Pedido;
   cancelar(id: string): Pedido;
+  marcarComoAlocados(ids: readonly string[]): Pedido[];
+  reverterParaPendente(ids: readonly string[]): Pedido[];
 };
 
 /**
@@ -73,5 +77,30 @@ export function criarRepositorioPedidos(persistencia: PersistenciaPedidos): Repo
       persistencia.salvar(pedidos);
       return cancelado;
     },
+
+    marcarComoAlocados(ids: readonly string[]): Pedido[] {
+      return mutarEmLote(ids, alocarPedido);
+    },
+
+    reverterParaPendente(ids: readonly string[]): Pedido[] {
+      return mutarEmLote(ids, reverterPedidoParaPendente);
+    },
   };
+
+  /**
+   * Aplica `transformar` a cada pedido de `ids`, validando todos os ids
+   * **antes** de mutar qualquer um (atômico), e grava a persistência uma
+   * única vez. Nenhuma regra de negócio é duplicada — a transição em si
+   * delega ao domínio (`alocarPedido`/`reverterParaPendente`).
+   */
+  function mutarEmLote(ids: readonly string[], transformar: (pedido: Pedido) => Pedido): Pedido[] {
+    const alvos = ids.map((id) => buscarPorId(id));
+    const transformados = alvos.map(transformar);
+
+    const porId = new Map(transformados.map((pedido) => [pedido.id, pedido]));
+    pedidos = pedidos.map((item) => porId.get(item.id) ?? item);
+    persistencia.salvar(pedidos);
+
+    return transformados;
+  }
 }

@@ -252,3 +252,81 @@ Cada decisão registra o **contexto**, a **escolha** e o **porquê** (incluindo 
 - **Limitação conhecida:** reduzir `DRONE_QUANTIDADE` entre reinícios deixa `droneId`s
   persistidos pelo Bloco 4 apontando para drones que deixaram de existir. Não há dado
   persistido referenciando drone neste bloco; a reconciliação fica para o Bloco 4.
+  **Atualização (Bloco 4):** resolvida por D27 — viagem órfã é descartada no boot e seus
+  pedidos voltam a `pendente`.
+
+## D25 — Disparo explícito da alocação via `POST /entregas/alocar` ✅
+
+- **Contexto:** o Bloco 4 (E3) precisa de um gatilho para rodar o algoritmo de alocação
+  sobre os pedidos `pendente` acumulados.
+- **Escolha:** um endpoint de comando dedicado, `POST /entregas/alocar`, separado da leitura
+  em `GET /entregas/rota`.
+- **Porquê:** separa cadastro de planejamento — padrão comum em sistemas de roteirização
+  (comando "solve" explícito). Um `GET` que muda status de pedidos e grava viagens violaria
+  a semântica HTTP (idempotência/segurança de `GET`).
+- **Alternativas descartadas:** alocação automática a cada `POST /pedidos` (recalcularia a
+  cada cadastro, caro e instável em lote); `GET /entregas/rota` disparando a alocação
+  implicitamente (efeito colateral escondido atrás de uma leitura).
+
+## D26 — Persistência das viagens em arquivo JSON, mesmo padrão de D6 ✅
+
+- **Contexto:** `pedido.status` já é persistido (D6); a partir do Bloco 4, um pedido pode
+  ficar `alocado`, vinculado a uma viagem que só existisse em memória.
+- **Escolha:** persistir as viagens em arquivo JSON (`VIAGENS_ARQUIVO`), com o mesmo desenho
+  de porta `carregar`/`salvar`, escrita atômica e schema Zod de `persistencia-pedidos.ts`.
+- **Porquê:** viagem só em memória deixaria pedidos `alocado` órfãos no arquivo de pedidos
+  após um reinício — sem viagem correspondente para explicar o status. Persistir os dois
+  lados mantém o estado coerente entre reinícios.
+- **Risco assumido:** `POST /entregas/alocar` grava em dois lugares (pedidos e viagens); uma
+  falha entre as duas gravações pode deixar o disco inconsistente. Mitigado gravando os
+  pedidos **antes** das viagens, de modo que uma falha no meio produza o estado recuperável
+  "pedido `alocado` sem viagem" — que a reconciliação do boot (D27) já sabe desfazer.
+- **Alternativas descartadas:** viagens só em memória (mais simples, mas perde a alocação a
+  cada reinício e deixa pedidos `alocado` inconsistentes); banco de dados (excesso para o escopo).
+
+## D27 — Reconciliação de viagem órfã no boot ✅
+
+- **Contexto:** a frota é derivada da config a cada boot, sem persistência própria (D24);
+  reduzir `DRONE_QUANTIDADE` entre reinícios pode deixar uma viagem persistida apontando
+  para um `droneId` que deixou de existir — a limitação conhecida registrada em D24.
+- **Escolha:** ao criar o repositório de viagens no boot, reconciliar a lista carregada
+  contra os `droneId`s da frota atual: viagem órfã é descartada e seus `pedidoIds` voltam a
+  `pendente` (`reverterParaPendente`, domínio puro). Um log explícito no boot informa a
+  quantidade descartada.
+- **Porquê:** encolher a frota é uma operação prevista (D8), não uma corrupção — falhar o
+  boot impediria o operador de reduzir `DRONE_QUANTIDADE`. Reverter a `pendente` mantém o
+  pedido num estado válido, pronto para ser realocado na próxima chamada de
+  `POST /entregas/alocar`.
+- **Alternativas descartadas:** falhar o boot com frota reduzida (bloqueia uma operação
+  legítima); manter a viagem órfã como está (deixaria `GET /entregas/rota` reportando um
+  drone inexistente, e o pedido preso em `alocado` para sempre).
+
+## D28 — Designação de viagem para drone por round-robin ✅
+
+- **Contexto:** o greedy (D9) fecha viagens sem saber qual drone vai executá-las; alguma
+  regra precisa distribuir as viagens fechadas entre os drones da frota.
+- **Escolha:** round-robin simples — `viagens[i] → drones[i % N]`.
+- **Porquê:** o objetivo do E3-1 é minimizar o número de viagens para entregar **tudo**, não
+  encaixar tudo numa única rodada por drone; a execução sequencial de viagens por drone
+  (quantas cabem "ao mesmo tempo") é problema da simulação (E4), fora do escopo deste bloco.
+  Round-robin distribui a carga de forma equilibrada e determinística sem entrar nesse mérito.
+- **Alternativas descartadas:** atribuir todas as viagens ao mesmo drone (ignora a frota);
+  balancear por carga/distância acumulada por drone (otimização prematura antes de existir
+  simulação de execução para avaliar o ganho).
+
+## D29 — Relatório `naoAlocados` + desempate final por maior peso (FFD) ✅
+
+- **Contexto:** nem todo pedido cabe em viagem alguma (destino inalcançável sozinho, ou peso
+  acima da capacidade atual se a config mudou após o cadastro); e o empacotamento greedy
+  (D9) precisa de um terceiro critério de desempate que D11 não fixa.
+- **Escolha:** pedido inviável sai da fila e entra em `naoAlocados` na resposta de
+  `POST /entregas/alocar`, com `pedidoId`, `motivo` (`INALCANCAVEL` ou
+  `PESO_ACIMA_CAPACIDADE`) e `mensagem`; o desempate remanescente de D11 ordena por maior
+  peso primeiro.
+- **Porquê:** abortar toda a alocação por causa de um destino ruim travaria a operação —
+  alocação parcial é o comportamento correto, e o relatório vira dado do dashboard (E6).
+  Maior peso primeiro é a heurística clássica de bin-packing (First-Fit-Decreasing): pacotes
+  grandes entram primeiro, deixando menos "buraco" e reduzindo o número de viagens.
+- **Alternativas descartadas:** falhar a chamada inteira se houver um pedido inviável (perde
+  a alocação parcial); menor peso primeiro no desempate (contraria a heurística FFD, tende a
+  gerar mais viagens).

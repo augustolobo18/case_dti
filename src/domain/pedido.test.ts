@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { ErroDominio } from './erros.js';
-import { criarPedido, comStatus, cancelarPedido, type LimitesPedido } from './pedido.js';
+import {
+  criarPedido,
+  comStatus,
+  cancelarPedido,
+  alocarPedido,
+  reverterParaPendente,
+  type LimitesPedido,
+} from './pedido.js';
 
 const LIMITES: LimitesPedido = { capacidadeKg: 10, cidadeTamanho: 10 };
 const gerarIdFixo = () => 'id-fixo-teste';
@@ -150,6 +157,81 @@ describe('cancelarPedido', () => {
       } catch (erro) {
         expect(erro).toBeInstanceOf(ErroDominio);
         expect((erro as ErroDominio).codigo).toBe('CANCELAMENTO_NAO_PERMITIDO');
+      }
+    },
+  );
+});
+
+describe('alocarPedido', () => {
+  it('aloca um pedido pendente, devolvendo nova cópia sem mutar o original', () => {
+    const original = criarPedido(
+      { x: 0, y: 0, pesoKg: 1, prioridade: 'baixa' },
+      { limites: LIMITES, gerarId: gerarIdFixo },
+    );
+
+    const alocado = alocarPedido(original);
+
+    expect(alocado.status).toBe('alocado');
+    expect(original.status).toBe('pendente');
+    expect(alocado).not.toBe(original);
+  });
+
+  it.each(['alocado', 'em_voo', 'entregue', 'cancelado'] as const)(
+    'rejeita alocar pedido com status "%s" com ALOCACAO_NAO_PERMITIDA',
+    (status) => {
+      expect.assertions(2);
+      const pedido = comStatus(
+        criarPedido(
+          { x: 0, y: 0, pesoKg: 1, prioridade: 'baixa' },
+          { limites: LIMITES, gerarId: gerarIdFixo },
+        ),
+        status,
+      );
+
+      try {
+        alocarPedido(pedido);
+      } catch (erro) {
+        expect(erro).toBeInstanceOf(ErroDominio);
+        expect((erro as ErroDominio).codigo).toBe('ALOCACAO_NAO_PERMITIDA');
+      }
+    },
+  );
+});
+
+describe('reverterParaPendente', () => {
+  it('reverte um pedido alocado para pendente, devolvendo nova cópia sem mutar o original', () => {
+    const original = comStatus(
+      criarPedido(
+        { x: 0, y: 0, pesoKg: 1, prioridade: 'baixa' },
+        { limites: LIMITES, gerarId: gerarIdFixo },
+      ),
+      'alocado',
+    );
+
+    const revertido = reverterParaPendente(original);
+
+    expect(revertido.status).toBe('pendente');
+    expect(original.status).toBe('alocado');
+    expect(revertido).not.toBe(original);
+  });
+
+  it.each(['pendente', 'em_voo', 'entregue', 'cancelado'] as const)(
+    'rejeita reverter pedido com status "%s" com ALOCACAO_NAO_PERMITIDA',
+    (status) => {
+      expect.assertions(2);
+      const pedido = comStatus(
+        criarPedido(
+          { x: 0, y: 0, pesoKg: 1, prioridade: 'baixa' },
+          { limites: LIMITES, gerarId: gerarIdFixo },
+        ),
+        status,
+      );
+
+      try {
+        reverterParaPendente(pedido);
+      } catch (erro) {
+        expect(erro).toBeInstanceOf(ErroDominio);
+        expect((erro as ErroDominio).codigo).toBe('ALOCACAO_NAO_PERMITIDA');
       }
     },
   );

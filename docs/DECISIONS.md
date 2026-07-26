@@ -230,3 +230,25 @@ Cada decisão registra o **contexto**, a **escolha** e o **porquê** (incluindo 
   do lint, não por revisão manual.
 - **Alternativas descartadas:** `String(valor)` no template (silencia o sintoma e mantém a
   incoerência); `eslint-disable` na linha (descarta um achado correto no código mais avaliado).
+
+## D24 — Frota derivada da config, com ids determinísticos ✅
+
+- **Contexto:** o Bloco 3 (E2) precisa instanciar a frota no boot e expor seu status via API.
+  `criarDrone`/`criarFrota` (Bloco 1) usam `crypto.randomUUID` como gerador padrão de `id`, o
+  que produziria ids diferentes a cada reinício do processo. O Bloco 4 vai persistir `droneId`
+  dentro de pedidos/viagens gravados em disco — um id que muda a cada boot deixaria essas
+  referências órfãs na primeira reinicialização.
+- **Escolha:** a frota é sempre **derivada da config** (`.env`) a cada boot, sem persistência
+  própria, e usa um gerador de id sequencial e determinístico (`criarGeradorIdSequencial`):
+  `drone-1`, `drone-2`, ..., `drone-N`, na mesma ordem a cada subida do processo.
+- **Porquê:** ids estáveis entre reinícios sem precisar persistir a frota — persistir criaria
+  divergência entre o arquivo salvo e um `.env` alterado pelo operador (o mesmo raciocínio de
+  D8). É a opção mais simples que ainda dá ao Bloco 4 uma referência de drone confiável.
+- **Alternativas descartadas:** persistir a frota em arquivo JSON (resolveria a estabilidade,
+  mas duplica o mecanismo de D6 para um dado que já é 100% derivado da config, e reabre a
+  questão de reconciliar arquivo salvo vs. `.env` editado); manter `randomUUID` (mais "correto"
+  como identificador único, porém instável entre reinícios — inviabiliza referências
+  persistidas de forma simples).
+- **Limitação conhecida:** reduzir `DRONE_QUANTIDADE` entre reinícios deixa `droneId`s
+  persistidos pelo Bloco 4 apontando para drones que deixaram de existir. Não há dado
+  persistido referenciando drone neste bloco; a reconciliação fica para o Bloco 4.

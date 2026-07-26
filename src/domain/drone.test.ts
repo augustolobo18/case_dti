@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { ErroDominio } from './erros.js';
-import { criarDrone, criarFrota, type OpcoesDrone } from './drone.js';
+import { criarDrone, criarFrota, criarGeradorIdSequencial, type OpcoesDrone } from './drone.js';
 
 const OPCOES: OpcoesDrone = { base: { x: 0, y: 0 }, capacidadeKg: 10, alcanceQuadras: 40 };
 
@@ -69,5 +69,40 @@ describe('criarFrota', () => {
       expect(erro).toBeInstanceOf(ErroDominio);
       expect((erro as ErroDominio).codigo).toBe('QUANTIDADE_DRONES_INVALIDA');
     }
+  });
+
+  it('com um gerador sequencial, produz ids estáveis entre "reinícios" (frotas distintas)', () => {
+    const frota1 = criarFrota(3, { ...OPCOES, gerarId: criarGeradorIdSequencial() });
+    const frota2 = criarFrota(3, { ...OPCOES, gerarId: criarGeradorIdSequencial() });
+
+    const ids = ['drone-1', 'drone-2', 'drone-3'];
+    expect(frota1.map((drone) => drone.id)).toEqual(ids);
+    expect(frota2.map((drone) => drone.id)).toEqual(ids);
+  });
+});
+
+describe('criarGeradorIdSequencial', () => {
+  it('gera ids sequenciais com o prefixo padrão "drone"', () => {
+    const gerarId = criarGeradorIdSequencial();
+
+    expect(gerarId()).toBe('drone-1');
+    expect(gerarId()).toBe('drone-2');
+    expect(gerarId()).toBe('drone-3');
+  });
+
+  it('aceita um prefixo customizado', () => {
+    const gerarId = criarGeradorIdSequencial('d');
+
+    expect(gerarId()).toBe('d-1');
+    expect(gerarId()).toBe('d-2');
+  });
+
+  it('dois geradores independentes têm contadores próprios', () => {
+    const gerarId1 = criarGeradorIdSequencial();
+    const gerarId2 = criarGeradorIdSequencial();
+
+    expect(gerarId1()).toBe('drone-1');
+    expect(gerarId1()).toBe('drone-2');
+    expect(gerarId2()).toBe('drone-1');
   });
 });

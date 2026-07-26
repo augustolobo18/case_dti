@@ -92,7 +92,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 
 ## E2 — Frota de Drones
 
-### E2-1 — Frota configurável na inicialização 🔲
+### E2-1 — Frota configurável na inicialização ✅
 
 > **Como** Operador, **quero** ter uma frota de drones com capacidade e alcance
 > definidos, **para** que o sistema tenha veículos disponíveis para as entregas.
@@ -103,7 +103,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 - A frota é criada ao iniciar o sistema; cada drone recebe um `id` único e começa `idle`.
 - Não há endpoint de cadastro de drone nesta fase (frota fixa; muda-se via `.env` + reinício).
 
-### E2-2 — Consultar status da frota 🔲
+### E2-2 — Consultar status da frota ✅
 
 > **Como** Operador, **quero** consultar o status de cada drone da frota, **para**
 > saber quais estão disponíveis e o que cada um está fazendo.

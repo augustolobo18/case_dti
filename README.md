@@ -126,12 +126,25 @@ A cada push e pull request, o CI (GitHub Actions) roda `typecheck`, `lint`,
 `GET /pedidos` aceita `?status=` (`pendente` \| `alocado` \| `em_voo` \| `entregue` \| `cancelado`)
 e `?prioridade=` (`baixa` \| `media` \| `alta`), combináveis.
 
+### Implementados (E2 — Frota)
+
+| Método | Rota          | Descrição                        | Corpo | Resposta                             |
+| ------ | ------------- | --------------------------------- | ----- | -------------------------------------- |
+| GET    | `/drones`     | Lista o status de todos os drones | —     | `200` com array (um item por drone)    |
+| GET    | `/drones/:id` | Busca um drone por `id`           | —     | `200` com o drone; `404` se ausente    |
+
+> **Nota:** a rota planejada `GET /drones/status` foi substituída por `GET /drones` +
+> `GET /drones/:id` — `status` não é um recurso e colidiria com `:id` no roteamento REST.
+
+A frota é homogênea e fixa via `.env` (D8): não há endpoint de cadastro/edição de drone —
+mudar a quantidade exige reiniciar o servidor. Ids são sequenciais e determinísticos
+(`drone-1`…`drone-N`), estáveis entre reinícios.
+
 ### Planejados (próximos blocos)
 
 | Método | Rota              | Descrição                                  |
 | ------ | ----------------- | ------------------------------------------ |
 | GET    | `/entregas/rota`  | Retorna as rotas/viagens calculadas        |
-| GET    | `/drones/status`  | Estado atual de cada drone                 |
 
 ### Exemplos
 
@@ -180,6 +193,42 @@ curl -X POST http://localhost:3000/pedidos \
   "erro": {
     "codigo": "PESO_ACIMA_CAPACIDADE",
     "mensagem": "Peso de 999kg acima da capacidade do drone (10kg)."
+  }
+}
+```
+
+**Listar a frota:**
+
+```bash
+curl http://localhost:3000/drones
+```
+
+```json
+[
+  {
+    "id": "drone-1",
+    "estado": "idle",
+    "posicao": { "x": 0, "y": 0 },
+    "cargaKg": 0,
+    "capacidadeKg": 10,
+    "bateriaQuadras": 40,
+    "alcanceQuadras": 40,
+    "bateriaPercentual": 100
+  }
+]
+```
+
+**Buscar um drone inexistente (404 padronizado, E7-2):**
+
+```bash
+curl http://localhost:3000/drones/inexistente
+```
+
+```json
+{
+  "erro": {
+    "codigo": "DRONE_NAO_ENCONTRADO",
+    "mensagem": "Drone não encontrado: id=\"inexistente\"."
   }
 }
 ```

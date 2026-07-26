@@ -48,6 +48,17 @@ export function criarDrone(opcoes: OpcoesDrone): Drone {
 }
 
 /**
+ * Cria um gerador de ids sequenciais e determinísticos (`drone-1`, `drone-2`, ...),
+ * fechando sobre um contador próprio. Usado para dar ids estáveis à frota entre
+ * reinícios (a frota é derivada da config a cada boot, ver D8) — ao contrário de
+ * `randomUUID`, que mudaria a cada subida do processo.
+ */
+export function criarGeradorIdSequencial(prefixo = 'drone'): () => string {
+  let contador = 0;
+  return () => `${prefixo}-${++contador}`;
+}
+
+/**
  * Cria uma frota homogênea de `quantidade` drones, todos com os mesmos
  * limites e cada um com um `id` único (D8).
  */

@@ -1,6 +1,6 @@
 # Context Index — case_dti (DroneDelivery)
 
-> Artifact map. Updated: 2026-07-26 (v0.9)
+> Artifact map. Updated: 2026-07-26 (v1.0)
 
 ## Quick Navigation
 
@@ -18,10 +18,11 @@ No artifacts.
 
 ### Walkthroughs — context/walkthroughs/
 
-| File                                        | Date       | Description                                  | Status |
-| ------------------------------------------- | ---------- | -------------------------------------------- | ------ |
-| `2026-07-26_Walkthrough_Bloco_3_Frota.md`   | 2026-07-26 | Épico E2: frota da config, rotas de drone e ADR D24 | atual  |
-| `2026-07-25_Walkthrough_Bloco_2_Pedidos.md` | 2026-07-25 | Épico E1 + erros padronizados: camadas, decisões e dívidas | anterior |
+| File                                          | Date       | Description                                  | Status |
+| --------------------------------------------- | ---------- | -------------------------------------------- | ------ |
+| `2026-07-26_Walkthrough_Bloco_4_Alocacao.md`  | 2026-07-26 | Épico E3: viagem, greedy, roteamento e ADRs D25–D29 | atual  |
+| `2026-07-26_Walkthrough_Bloco_3_Frota.md`     | 2026-07-26 | Épico E2: frota da config, rotas de drone e ADR D24 | anterior |
+| `2026-07-25_Walkthrough_Bloco_2_Pedidos.md`   | 2026-07-25 | Épico E1 + erros padronizados: camadas, decisões e dívidas | anterior |
 
 ### Plans — plans/
 No artifacts.
@@ -40,7 +41,9 @@ No artifacts.
 | `src/api/server.ts`           | Recebe `Dependencias`; monta rotas, 404 e middleware de erro (nessa ordem) |
 | `src/api/rotas/pedidos.ts`    | As 4 rotas de pedido; repassa erros via `next`, sem tratá-los |
 | `src/api/rotas/drones.ts`     | As 2 rotas de consulta da frota (E2-2)                       |
+| `src/api/rotas/entregas.ts`   | `POST /alocar` e `GET /rota`; grava pedidos antes das viagens (D26) |
 | `src/api/apresentadores/drone.ts` | `RespostaDrone`: campos do domínio + `bateriaPercentual` derivado |
+| `src/api/apresentadores/viagem.ts` | `RespostaViagem`: campos do domínio + totais derivados na borda |
 | `src/api/schemas/pedido.ts`   | Zod na borda: valida a forma, não a regra (D3, D23)          |
 | `src/api/erros.ts`            | Mapa código → HTTP e envelope `{ erro: {...} }` (D20)        |
 | `src/api/middleware-erros.ts` | Handler central de erro e 404 de rota inexistente            |
@@ -49,9 +52,12 @@ No artifacts.
 | File                               | Responsibility                                          |
 | ---------------------------------- | ------------------------------------------------------- |
 | `src/infra/persistencia-pedidos.ts`| Porta `carregar`/`salvar`; impl. de arquivo (atômica, validante) e de memória |
+| `src/infra/persistencia-viagens.ts`| Mesma porta para viagens; espelha o desenho da de pedidos (D26) |
 | `src/infra/schema-pedido.ts`       | Schema do pedido já persistido; enums vindos do domínio    |
+| `src/infra/schema-viagem.ts`       | Schema da viagem já persistida                              |
 | `src/infra/erros.ts`               | `ErroPersistencia` — falha de I/O, não de regra de negócio  |
-| `src/repositorio/pedidos.ts`       | Lista em memória, grava a cada mutação, filtros de listagem |
+| `src/repositorio/pedidos.ts`       | Lista em memória, grava a cada mutação, filtros e mutação em lote atômica |
+| `src/repositorio/viagens.ts`       | Write-through; reconcilia viagens órfãs na criação e expõe `pedidoIdsOrfaos` (D27) |
 | `src/repositorio/frota.ts`         | Frota montada da config no boot; consulta apenas, sem persistência (D24) |
 
 ### Domínio
@@ -61,6 +67,8 @@ No artifacts.
 | `src/domain/coordenada.ts` | Malha 2D, validação `0..N` e distância Manhattan             |
 | `src/domain/pedido.ts`     | Tipo `Pedido`, prioridades, status e factory validante       |
 | `src/domain/drone.ts`      | Tipo `Drone`, estados, frota homogênea e gerador de id sequencial |
+| `src/domain/viagem.ts`     | Tipo `Viagem`, roteamento nearest-neighbor, guarda de invariante e reconciliação |
+| `src/domain/alocacao.ts`   | **Núcleo do case**: ordenação (D11) e empacotamento greedy (D9), puros |
 
 ### Config
 | File                  | Responsibility                                  |

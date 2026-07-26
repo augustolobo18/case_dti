@@ -4,8 +4,10 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { criarApp } from '../server.js';
 import type { CorpoErro } from '../erros.js';
 import { criarPersistenciaMemoria } from '../../infra/persistencia-pedidos.js';
+import { criarPersistenciaMemoria as criarPersistenciaMemoriaViagens } from '../../infra/persistencia-viagens.js';
 import { criarRepositorioPedidos } from '../../repositorio/pedidos.js';
 import { criarRepositorioFrota, type OpcoesFrota } from '../../repositorio/frota.js';
+import { criarRepositorioViagens } from '../../repositorio/viagens.js';
 import type { RespostaDrone } from '../apresentadores/drone.js';
 
 const OPCOES_FROTA: OpcoesFrota = {
@@ -35,7 +37,11 @@ let app: Express;
 beforeEach(() => {
   const pedidos = criarRepositorioPedidos(criarPersistenciaMemoria());
   const frota = criarRepositorioFrota(OPCOES_FROTA);
-  app = criarApp({ pedidos, frota });
+  const viagens = criarRepositorioViagens({
+    persistencia: criarPersistenciaMemoriaViagens(),
+    droneIds: frota.listar().map((d) => d.id),
+  });
+  app = criarApp({ pedidos, frota, viagens });
 });
 
 describe('GET /drones', () => {

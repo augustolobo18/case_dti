@@ -26,4 +26,7 @@ export const config = {
 
   /** Caminho do arquivo JSON onde os pedidos são persistidos localmente (D6). */
   pedidosArquivo: process.env.PEDIDOS_ARQUIVO ?? 'data/pedidos.json',
+
+  /** Caminho do arquivo JSON onde as viagens calculadas são persistidas localmente (D26). */
+  viagensArquivo: process.env.VIAGENS_ARQUIVO ?? 'data/viagens.json',
 } as const;

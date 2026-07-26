@@ -1,6 +1,6 @@
 # MetaSpec — case_dti (DroneDelivery)
 
-> Context for AI agents. Version: 1.0 | Updated: 2026-07-26
+> Context for AI agents. Version: 1.1 | Updated: 2026-07-26
 
 ## IDENTITY
 
@@ -27,18 +27,20 @@ dashboard   visualização simples (web ou ASCII)
 
 ## ARCHITECTURE
 
-Fluxo alvo (E1 e E2 implementados; alocação e simulação pendentes):
+Fluxo alvo (E1, E2 e E3 implementados; simulação e dashboard pendentes):
 
 ```
 POST /pedidos ──> Zod (forma) ──> Domínio (regra) ──> Repositório ──> JSON
-                                       │
+                                                            │
+POST /entregas/alocar ─────────────────────────────────────>│
+                                       ┌────────────────────┘
                                        v
                               Algoritmo de Alocação
                         (heurística greedy: capacidade + alcance,
                          ordenado por prioridade > distância > peso)
                                        │
                                        v
-                          Viagens ──> Simulação de Drones
+                     Viagens ──> JSON ──> Simulação de Drones (pendente)
                         (Idle→Carregando→Em voo→Entregando
                               →Retornando→Idle)
                                        │
@@ -52,41 +54,54 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 | ----------- | ------------------ | ---------------------------------------------------- |
 | Config      | `src/config.ts`    | Constantes: capacidade, alcance, malha, frota, base, porta, arquivo de pedidos (env) |
 | Domínio     | `src/domain/`      | `Coordenada` + distância, `Pedido`, `Drone`/frota, `ErroDominio` |
-| Alocação    | `src/domain/`      | Algoritmo de alocação de pacotes por viagem (pendente) |
-| Persistência| `src/infra/`       | Porta `carregar`/`salvar`, implementações de arquivo JSON e de memória, schema e erro próprios |
-| Repositório | `src/repositorio/` | Pedidos em memória com write-through; frota derivada da config, sem persistência |
+| Alocação    | `src/domain/`      | `Viagem` + roteamento nearest-neighbor; ordenação e empacotamento greedy, puros |
+| Persistência| `src/infra/`       | Portas `carregar`/`salvar` de pedidos e viagens, implementações de arquivo JSON e de memória, schemas e erro próprios |
+| Repositório | `src/repositorio/` | Pedidos e viagens em memória com write-through; frota derivada da config, sem persistência |
 | API         | `src/api/`         | Express; rotas, schemas Zod, apresentadores, mapa erro→HTTP e middleware central |
-| Entry       | `src/index.ts`     | Compõe persistência → repositório → app e sobe o HTTP |
+| Entry       | `src/index.ts`     | Compõe persistências → repositórios → app, reconcilia viagens órfãs e sobe o HTTP |
 | Dashboard   | `src/dashboard/`   | Relatório/visualização de métricas e mapa (vazio)    |
 
-## CURRENT STATE (v1.0 — 26/07/2026)
+## CURRENT STATE (v1.1 — 26/07/2026)
 
-- Branch `feat/bloco-3` (blocos 1-2 na `main`, PRs #2 a #5); bloco 3 commitado, PR pendente. Próximo: bloco 4 (alocação, E3).
+- Branch `feat/bloco-4` (blocos 1-3 na `main`, PRs #2 a #6); implementação sem commit. Próximo: bloco 5 (simulação e estados, E4).
 - Ready:
   - Domínio base: `Coordenada` + distância Manhattan, `Pedido` e `Drone`/frota, com `ErroDominio` tipado.
   - Tipos imutáveis e funções puras; limites entram por parâmetro e `gerarId` é injetável (testes determinísticos).
   - Épico E1 completo: cadastro, consulta com filtros, busca por id e cancelamento de pedidos.
   - Épico E2 completo: frota criada da config no boot e consultável por `GET /drones` e `GET /drones/:id`.
-  - Pedidos sobrevivem a reinício — persistência JSON write-through, com escrita atômica.
-  - Arquivo de pedidos validado por schema ao carregar; corrompido, o boot falha sem tocar no arquivo.
+  - Épico E3 completo: alocação greedy e roteamento nearest-neighbor em `POST /entregas/alocar` e `GET /entregas/rota`.
+  - `alocarPedidos` é pura e determinística — sem I/O, relógio ou aleatoriedade; validada com ~500 pedidos por semente fixa.
+  - Pedidos e viagens sobrevivem a reinício — persistência JSON write-through, com escrita atômica.
+  - Viagem cujo drone sumiu da frota é descartada no boot e seus pedidos voltam a `pendente` (D27).
+  - Arquivos de pedidos e viagens validados por schema ao carregar; corrompidos, o boot falha sem tocá-los.
   - Erros padronizados `{ erro: { codigo, mensagem, detalhes? } }` por middleware central (E7-1).
-  - Testes verdes em domínio, persistência, repositórios e endpoints; cobertura total ~98%.
+  - Testes verdes em domínio, persistência, repositórios e endpoints; cobertura total ~98%, domínio ~99%.
   - Lint type-aware, formatação determinística e CI a cada push/PR — pipeline verde ponta a ponta.
-  - Detalhes: `context/walkthroughs/2026-07-26_Walkthrough_Bloco_3_Frota.md`.
+  - Detalhes: `context/walkthroughs/2026-07-26_Walkthrough_Bloco_4_Alocacao.md`.
 - Technical debt (ordem do roadmap — `docs/BACKLOG.md`):
-  - Bloco 4: alocação greedy + roteamento nearest-neighbor (E3) — o núcleo avaliado do case.
-  - Blocos 5-8: simulação de estados, zonas de exclusão, dashboard e simulação de carga.
-  - Status `alocado`, `em_voo` e `entregue` existem no tipo, mas nada os produz até os blocos 4-5.
-  - Drone não tem operação de mutação: `estado`, `posicao` e `cargaKg` são fixos até o E3/E4.
-  - Reduzir `DRONE_QUANTIDADE` entre reinícios encolhe a frota; a partir do bloco 4, `droneId` persistido pode ficar órfão (D24).
-  - `GET /pedidos` e `GET /drones` sem paginação nem filtro — vira ponto de atenção na simulação de carga (E8-2).
+  - Bloco 5: máquina de estados, tempo de entrega e bateria (E4) — hoje nada executa as viagens geradas.
+  - Blocos 6-8: zonas de exclusão, dashboard e simulação de carga.
+  - Drone segue `idle`, na base, sem carga e com bateria cheia mesmo com viagem atribuída — contradiz `GET /entregas/rota`.
+  - Pedido para em `alocado`: `em_voo` e `entregue` existem no tipo, mas nada os produz até o bloco 5.
+  - Viagens acumulam entre alocações e nenhuma rota as descarta — só apagando `data/viagens.json`.
+  - `empacotar` só termina porque `separarInviaveis` garante que todo pedido restante cabe sozinho; o invariante não tem asserção.
+  - Falha entre gravar pedidos e gravar viagens deixa pedido `alocado` sem viagem; a reconciliação do boot não cobre esse caso (D26).
+  - `GET /pedidos`, `GET /drones` e `GET /entregas/rota` sem paginação nem filtro — ponto de atenção na simulação de carga (E8-2).
 
 ## CRITICAL BUSINESS RULES
 
 > Detalhe e justificativa de cada decisão: `docs/DECISIONS.md`. Escopo: `docs/BACKLOG.md`.
 
 - Alocação: heurística greedy; cada viagem respeita capacidade (kg) e alcance (base → entregas → base); minimizar nº de viagens é o objetivo primário.
-- Ordenação: prioridade (alta > média > baixa) → distância → peso (determinística).
+- Ordenação: prioridade (alta > média > baixa) → distância → maior peso → `id`; o comparador nunca devolve 0 (D29).
+- Alocação é disparada por comando explícito `POST /entregas/alocar` e só considera pedidos `pendente` — logo é idempotente (D25).
+- Empacotamento é first-fit: pedido que não cabe é pulado e reavaliado na viagem seguinte, nunca trava a fila.
+- Alocação parcial: pedido inviável entra em `naoAlocados` com motivo; não aborta a rodada nem some (D29).
+- Cada tentativa de inserção reroteia a viagem inteira — a distância depende do conjunto, não do último inserido.
+- Roteamento desempata por menor `x`, depois menor `y` — nunca pela ordem de cadastro (D12).
+- Viagens são distribuídas entre os drones em round-robin, sem olhar carga nem posição (D28).
+- Viagens são persistidas como os pedidos; gravar pedidos antes das viagens deixa a falha intermediária recuperável (D26).
+- Viagem cujo `droneId` sumiu da frota é descartada no boot e seus pedidos voltam a `pendente` — encolher a frota é operação prevista, não corrupção (D27).
 - Distância: métrica Manhattan `|dx| + |dy|`. A unidade é a **quadra** — nunca km, em nenhum ponto do sistema.
 - Bateria e alcance são o mesmo recurso: bateria cheia equivale ao alcance total.
 - Status do pedido (`pendente → alocado → em_voo → entregue`, mais `cancelado`) é distinto da máquina de estados do drone.

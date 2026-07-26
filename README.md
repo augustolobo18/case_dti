@@ -140,11 +140,19 @@ A frota é homogênea e fixa via `.env` (D8): não há endpoint de cadastro/edi�
 mudar a quantidade exige reiniciar o servidor. Ids são sequenciais e determinísticos
 (`drone-1`…`drone-N`), estáveis entre reinícios.
 
-### Planejados (próximos blocos)
+### Implementados (E3 — Alocação & Otimização)
 
-| Método | Rota              | Descrição                                  |
-| ------ | ----------------- | ------------------------------------------ |
-| GET    | `/entregas/rota`  | Retorna as rotas/viagens calculadas        |
+| Método | Rota                | Descrição                                          | Corpo | Resposta                                    |
+| ------ | ------------------- | --------------------------------------------------- | ----- | -------------------------------------------- |
+| POST   | `/entregas/alocar`  | Aloca os pedidos `pendente` em viagens (greedy)      | —     | `201` com `{ viagens, naoAlocados }`         |
+| GET    | `/entregas/rota`    | Lista as viagens já calculadas                       | —     | `200` com array (vazio se nenhuma alocação)  |
+
+`POST /entregas/alocar` ordena os pedidos pendentes por prioridade → distância → peso (D11),
+empacota em viagens por heurística greedy respeitando capacidade e alcance (D9), roteia cada
+viagem por vizinho mais próximo (D12) e distribui entre os drones da frota em round-robin (D28).
+Pedidos alocados passam a `alocado`; pedido inviável (fora do alcance ou peso acima da
+capacidade) sai em `naoAlocados`, com `pedidoId`, `motivo` e `mensagem`, e continua `pendente`.
+As viagens são persistidas (D26) e sobrevivem a reinício.
 
 ### Exemplos
 
@@ -231,6 +239,59 @@ curl http://localhost:3000/drones/inexistente
     "mensagem": "Drone não encontrado: id=\"inexistente\"."
   }
 }
+```
+
+**Alocar os pedidos pendentes em viagens:**
+
+```bash
+curl -X POST http://localhost:3000/entregas/alocar
+```
+
+```json
+{
+  "viagens": [
+    {
+      "id": "6333e33e-b8df-4ac5-a867-851eb13b8455",
+      "droneId": "drone-1",
+      "pedidoIds": ["cac58500-93f0-4213-ba12-d768ec785e5c"],
+      "paradas": [
+        { "x": 0, "y": 0 },
+        { "x": 3, "y": 4 },
+        { "x": 0, "y": 0 }
+      ],
+      "distanciaQuadras": 14,
+      "cargaKg": 5,
+      "totalParadas": 3,
+      "totalPedidos": 1
+    }
+  ],
+  "naoAlocados": []
+}
+```
+
+**Consultar as viagens calculadas:**
+
+```bash
+curl http://localhost:3000/entregas/rota
+```
+
+```json
+[
+  {
+    "id": "6333e33e-b8df-4ac5-a867-851eb13b8455",
+    "droneId": "drone-1",
+    "pedidoIds": ["cac58500-93f0-4213-ba12-d768ec785e5c"],
+    "paradas": [
+      { "x": 0, "y": 0 },
+      { "x": 3, "y": 4 },
+      { "x": 0, "y": 0 }
+    ],
+    "distanciaQuadras": 14,
+    "cargaKg": 5,
+    "totalParadas": 3,
+    "totalPedidos": 1
+  }
+]
 ```
 
 ---

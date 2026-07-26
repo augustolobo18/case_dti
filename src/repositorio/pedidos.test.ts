@@ -127,4 +127,58 @@ describe('criarRepositorioPedidos', () => {
 
     expect(repositorio.listar({ status: 'pendente' })).toEqual([]);
   });
+
+  it('marcarComoAlocados muda os status e grava uma vez só', () => {
+    const persistencia = criarPersistenciaMemoria();
+    let chamadasSalvar = 0;
+    const persistenciaEspiada = {
+      carregar: () => persistencia.carregar(),
+      salvar: (pedidosParaSalvar: readonly ReturnType<typeof novoPedido>[]) => {
+        chamadasSalvar += 1;
+        persistencia.salvar([...pedidosParaSalvar]);
+      },
+    };
+    const repositorio = criarRepositorioPedidos(persistenciaEspiada);
+    const a = novoPedido();
+    const b = novoPedido();
+    repositorio.adicionar(a);
+    repositorio.adicionar(b);
+    chamadasSalvar = 0;
+
+    const resultado = repositorio.marcarComoAlocados([a.id, b.id]);
+
+    expect(resultado.every((p) => p.status === 'alocado')).toBe(true);
+    expect(repositorio.buscarPorId(a.id).status).toBe('alocado');
+    expect(repositorio.buscarPorId(b.id).status).toBe('alocado');
+    expect(chamadasSalvar).toBe(1);
+  });
+
+  it('marcarComoAlocados com id inexistente lança PEDIDO_NAO_ENCONTRADO sem gravar nada', () => {
+    expect.assertions(3);
+    const repositorio = criarRepositorioPedidos(criarPersistenciaMemoria());
+    const a = novoPedido();
+    repositorio.adicionar(a);
+
+    try {
+      repositorio.marcarComoAlocados([a.id, 'id-inexistente']);
+    } catch (erro) {
+      expect(erro).toBeInstanceOf(ErroDominio);
+      expect((erro as ErroDominio).codigo).toBe('PEDIDO_NAO_ENCONTRADO');
+      expect(repositorio.buscarPorId(a.id).status).toBe('pendente');
+    }
+  });
+
+  it('reverterParaPendente desfaz a alocação em lote', () => {
+    const repositorio = criarRepositorioPedidos(criarPersistenciaMemoria());
+    const a = novoPedido();
+    const b = novoPedido();
+    repositorio.adicionar(a);
+    repositorio.adicionar(b);
+    repositorio.marcarComoAlocados([a.id, b.id]);
+
+    const resultado = repositorio.reverterParaPendente([a.id, b.id]);
+
+    expect(resultado.every((p) => p.status === 'pendente')).toBe(true);
+    expect(repositorio.buscarPorId(a.id).status).toBe('pendente');
+  });
 });

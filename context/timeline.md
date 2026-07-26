@@ -1,6 +1,6 @@
 # Timeline — case_dti (DroneDelivery)
 
-> Evolutionary history. 7 phases | Jul/2026.
+> Evolutionary history. 8 phases | Jul/2026.
 
 ## Phase 0: Inicialização (Jul/2026)
 
@@ -66,15 +66,26 @@
 - `criarApp` passou a receber um objeto de dependências, para o bloco 4 somar `viagens` sem novo parâmetro posicional.
 - Detalhes: `context/walkthroughs/2026-07-26_Walkthrough_Bloco_3_Frota.md`.
 
+## Phase 7: Bloco 4 — alocação & otimização (Jul/2026)
+
+- Branch `feat/bloco-4`, sem commit.
+- Épico E3 completo: alocação greedy, roteamento nearest-neighbor e as rotas `POST /entregas/alocar` e `GET /entregas/rota`.
+- Alocação virou comando explícito, não efeito colateral do cadastro: separa planejamento de cadastro e mantém o `GET` sem efeito (D25).
+- `alocarPedidos` ficou pura — sem I/O, relógio ou aleatoriedade — o que permitiu testá-la com ~500 pedidos por semente fixa já neste bloco.
+- Viagens persistidas em JSON porque `pedido.status` já era persistido: mantê-las em memória deixaria pedidos `alocado` órfãos no arquivo (D26).
+- Reconciliação no boot fechou a limitação conhecida de D24 — viagem de drone removido é descartada e seus pedidos voltam a `pendente` (D27).
+- Empacotamento é first-fit, não next-fit: pedido que não cabe é pulado, o que faz um pacote leve ocupar espaço onde um pesado não coube.
+- Detalhes: `context/walkthroughs/2026-07-26_Walkthrough_Bloco_4_Alocacao.md`.
+
 ## Metrics Snapshot (2026-07-26)
 
 | Métrica            | Valor                          |
 | ------------------ | ------------------------------ |
 | Linguagem          | TypeScript (ESM)               |
 | Runtime            | Node.js 24 LTS (>= 20.12)      |
-| Fases              | ~7 (init + setup + planejamento + bloco 1 + ferramental + blocos 2-3) |
-| Backlog            | 8 épicos; E1, E2 e E7 concluídos; ADRs em docs/DECISIONS.md |
-| API                | 4 rotas de pedido + 2 de drone + `/health` |
-| Testes             | passing (~9 arquivos); cobertura total ~98% |
+| Fases              | ~8 (init + setup + planejamento + bloco 1 + ferramental + blocos 2-4) |
+| Backlog            | 8 épicos; E1, E2, E3 e E7 concluídos; ADRs em docs/DECISIONS.md |
+| API                | 4 rotas de pedido + 2 de drone + 2 de entrega + `/health` |
+| Testes             | passing (~14 arquivos); cobertura total ~98%, domínio ~99% |
 | Verificação        | typecheck, lint, format, testes e build verdes no CI |
-| Git                | main com 5 PRs mergeados; `feat/bloco-3` aberta, PR pendente |
+| Git                | main com 6 PRs mergeados; `feat/bloco-4` com a implementação sem commit |

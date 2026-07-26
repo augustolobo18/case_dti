@@ -23,6 +23,7 @@ const MAPA_STATUS_HTTP: Record<CodigoErroDominio, number> = {
   PESO_ACIMA_CAPACIDADE: 422,
   CANCELAMENTO_NAO_PERMITIDO: 422,
   PEDIDO_NAO_ENCONTRADO: 404,
+  DRONE_NAO_ENCONTRADO: 404,
 };
 
 /** Devolve o status HTTP para o código de erro de domínio informado (default 500). */

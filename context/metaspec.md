@@ -1,6 +1,6 @@
 # MetaSpec — case_dti (DroneDelivery)
 
-> Context for AI agents. Version: 0.9 | Updated: 2026-07-25
+> Context for AI agents. Version: 1.0 | Updated: 2026-07-26
 
 ## IDENTITY
 
@@ -27,7 +27,7 @@ dashboard   visualização simples (web ou ASCII)
 
 ## ARCHITECTURE
 
-Fluxo alvo (E1 implementado; alocação e simulação pendentes):
+Fluxo alvo (E1 e E2 implementados; alocação e simulação pendentes):
 
 ```
 POST /pedidos ──> Zod (forma) ──> Domínio (regra) ──> Repositório ──> JSON
@@ -43,7 +43,7 @@ POST /pedidos ──> Zod (forma) ──> Domínio (regra) ──> Repositório 
                               →Retornando→Idle)
                                        │
                                        v
-                    GET /entregas/rota · GET /drones/status · Dashboard
+                      GET /entregas/rota · GET /drones · Dashboard
 ```
 
 Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementações concretas.
@@ -54,29 +54,32 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 | Domínio     | `src/domain/`      | `Coordenada` + distância, `Pedido`, `Drone`/frota, `ErroDominio` |
 | Alocação    | `src/domain/`      | Algoritmo de alocação de pacotes por viagem (pendente) |
 | Persistência| `src/infra/`       | Porta `carregar`/`salvar`, implementações de arquivo JSON e de memória, schema e erro próprios |
-| Repositório | `src/repositorio/` | Estado dos pedidos em memória, gravando a cada mutação; delega regra ao domínio |
-| API         | `src/api/`         | Express; rotas, schemas Zod, mapa erro→HTTP e middleware central |
+| Repositório | `src/repositorio/` | Pedidos em memória com write-through; frota derivada da config, sem persistência |
+| API         | `src/api/`         | Express; rotas, schemas Zod, apresentadores, mapa erro→HTTP e middleware central |
 | Entry       | `src/index.ts`     | Compõe persistência → repositório → app e sobe o HTTP |
 | Dashboard   | `src/dashboard/`   | Relatório/visualização de métricas e mapa (vazio)    |
 
-## CURRENT STATE (v0.9 — 25/07/2026)
+## CURRENT STATE (v1.0 — 26/07/2026)
 
-- Branch `main`; blocos 1 e 2 mergeados (PRs #2 a #5). CI verde. Próximo: bloco 3 (frota, E2).
+- Branch `feat/bloco-3` (blocos 1-2 na `main`, PRs #2 a #5); bloco 3 commitado, PR pendente. Próximo: bloco 4 (alocação, E3).
 - Ready:
   - Domínio base: `Coordenada` + distância Manhattan, `Pedido` e `Drone`/frota, com `ErroDominio` tipado.
   - Tipos imutáveis e funções puras; limites entram por parâmetro e `gerarId` é injetável (testes determinísticos).
   - Épico E1 completo: cadastro, consulta com filtros, busca por id e cancelamento de pedidos.
+  - Épico E2 completo: frota criada da config no boot e consultável por `GET /drones` e `GET /drones/:id`.
   - Pedidos sobrevivem a reinício — persistência JSON write-through, com escrita atômica.
   - Arquivo de pedidos validado por schema ao carregar; corrompido, o boot falha sem tocar no arquivo.
   - Erros padronizados `{ erro: { codigo, mensagem, detalhes? } }` por middleware central (E7-1).
-  - Testes verdes em domínio, persistência, repositório e endpoints; domínio e repositório em 100%.
+  - Testes verdes em domínio, persistência, repositórios e endpoints; cobertura total ~98%.
   - Lint type-aware, formatação determinística e CI a cada push/PR — pipeline verde ponta a ponta.
-  - Detalhes do bloco: `context/walkthroughs/2026-07-25_Walkthrough_Bloco_2_Pedidos.md`.
+  - Detalhes: `context/walkthroughs/2026-07-26_Walkthrough_Bloco_3_Frota.md`.
 - Technical debt (ordem do roadmap — `docs/BACKLOG.md`):
-  - Blocos 3-4: frota exposta via API e alocação greedy + roteamento nearest-neighbor (E2, E3).
+  - Bloco 4: alocação greedy + roteamento nearest-neighbor (E3) — o núcleo avaliado do case.
   - Blocos 5-8: simulação de estados, zonas de exclusão, dashboard e simulação de carga.
   - Status `alocado`, `em_voo` e `entregue` existem no tipo, mas nada os produz até os blocos 4-5.
-  - `GET /pedidos` sem paginação — irrelevante hoje, vira ponto de atenção na simulação de carga (E8-2).
+  - Drone não tem operação de mutação: `estado`, `posicao` e `cargaKg` são fixos até o E3/E4.
+  - Reduzir `DRONE_QUANTIDADE` entre reinícios encolhe a frota; a partir do bloco 4, `droneId` persistido pode ficar órfão (D24).
+  - `GET /pedidos` e `GET /drones` sem paginação nem filtro — vira ponto de atenção na simulação de carga (E8-2).
 
 ## CRITICAL BUSINESS RULES
 
@@ -91,6 +94,8 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 - Erro → HTTP: 400 é entrada malformada, 422 é entrada válida que viola regra de negócio, 404 é inexistente. O mapa é único, em `src/api/erros.ts` — rota nenhuma escolhe status.
 - Valores de enum (prioridade, status, estado) são minúsculos, sem acento e em `snake_case` — seguros em JSON e query string.
 - Config coerente exige `4 × cidadeTamanho <= droneAlcanceQuadras` (base na origem); abaixo disso parte da malha nasce inalcançável.
+- Frota é derivada da config a cada boot, nunca persistida; ids são sequenciais (`drone-1`…`drone-N`) para permanecerem estáveis entre reinícios (D24).
+- Não existe cadastro de drone por API: a frota muda por `.env` + reinício (D8).
 - Validação: rejeitar peso `<= 0` ou acima da capacidade, e coordenadas fora da malha `0..N`, já no cadastro.
 - Entrada do domínio é não confiável: `DadosNovoPedido` usa primitivos frouxos (`prioridade: string`) e a factory devolve o tipo estreito — parse-don't-validate.
 - O arquivo de pedidos também é entrada não confiável: é validado por schema ao carregar e nunca é apagado, renomeado ou regravado quando inválido.

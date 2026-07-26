@@ -6,8 +6,15 @@ import type { CorpoErro } from '../erros.js';
 import { criarPedido, type Pedido, type LimitesPedido } from '../../domain/pedido.js';
 import { criarPersistenciaMemoria } from '../../infra/persistencia-pedidos.js';
 import { criarRepositorioPedidos, type RepositorioPedidos } from '../../repositorio/pedidos.js';
+import { criarRepositorioFrota, type OpcoesFrota } from '../../repositorio/frota.js';
 
 const LIMITES: LimitesPedido = { capacidadeKg: 10, cidadeTamanho: 10 };
+const OPCOES_FROTA: OpcoesFrota = {
+  base: { x: 0, y: 0 },
+  capacidadeKg: 10,
+  alcanceQuadras: 40,
+  quantidade: 1,
+};
 
 /** Tipa o corpo da resposta como envelope de erro (D20), evitando acesso `any`. */
 function comoErro(corpo: unknown): CorpoErro {
@@ -30,7 +37,8 @@ let contador = 0;
 
 beforeEach(() => {
   repositorio = criarRepositorioPedidos(criarPersistenciaMemoria());
-  app = criarApp(repositorio);
+  const frota = criarRepositorioFrota(OPCOES_FROTA);
+  app = criarApp({ pedidos: repositorio, frota });
   contador = 0;
 });
 

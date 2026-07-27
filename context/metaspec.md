@@ -1,6 +1,6 @@
 # MetaSpec — case_dti (DroneDelivery)
 
-> Context for AI agents. Version: 1.1 | Updated: 2026-07-26
+> Context for AI agents. Version: 1.2 | Updated: 2026-07-26
 
 ## IDENTITY
 
@@ -27,7 +27,7 @@ dashboard   visualização simples (web ou ASCII)
 
 ## ARCHITECTURE
 
-Fluxo alvo (E1, E2 e E3 implementados; simulação e dashboard pendentes):
+Fluxo alvo (E1–E4 implementados; zonas de exclusão e dashboard pendentes):
 
 ```
 POST /pedidos ──> Zod (forma) ──> Domínio (regra) ──> Repositório ──> JSON
@@ -40,12 +40,17 @@ POST /entregas/alocar ───────────────────�
                          ordenado por prioridade > distância > peso)
                                        │
                                        v
-                     Viagens ──> JSON ──> Simulação de Drones (pendente)
-                        (Idle→Carregando→Em voo→Entregando
-                              →Retornando→Idle)
+                     Viagens ──> JSON ──> Motor de Simulação (puro)
+                                       │   viagens -> eventos + métricas
+                                       v
+                            Serviço de Simulação
+                     (relógio virtual; POST /simulacao/avancar
+                      aplica os eventos vencidos aos repositórios)
                                        │
                                        v
-                      GET /entregas/rota · GET /drones · Dashboard
+       GET /drones (idle→carregando→em_voo→entregando→retornando)
+       GET /pedidos (pendente→alocado→em_voo→entregue)
+       GET /entregas/rota · GET /simulacao · Dashboard (pendente)
 ```
 
 Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementações concretas.
@@ -55,38 +60,44 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 | Config      | `src/config.ts`    | Constantes: capacidade, alcance, malha, frota, base, porta, arquivo de pedidos (env) |
 | Domínio     | `src/domain/`      | `Coordenada` + distância, `Pedido`, `Drone`/frota, `ErroDominio` |
 | Alocação    | `src/domain/`      | `Viagem` + roteamento nearest-neighbor; ordenação e empacotamento greedy, puros |
+| Simulação   | `src/domain/`      | Máquina de estados do drone e motor que transforma viagens em eventos com timestamps, puros |
 | Persistência| `src/infra/`       | Portas `carregar`/`salvar` de pedidos e viagens, implementações de arquivo JSON e de memória, schemas e erro próprios |
 | Repositório | `src/repositorio/` | Pedidos e viagens em memória com write-through; frota derivada da config, sem persistência |
+| Serviços    | `src/servicos/`    | Orquestra domínio + repositórios sem HTTP; guarda o relógio virtual e aplica os eventos |
 | API         | `src/api/`         | Express; rotas, schemas Zod, apresentadores, mapa erro→HTTP e middleware central |
-| Entry       | `src/index.ts`     | Compõe persistências → repositórios → app, reconcilia viagens órfãs e sobe o HTTP |
+| Entry       | `src/index.ts`     | Compõe persistências → repositórios → serviço → app, reconcilia viagens órfãs e sobe o HTTP |
 | Dashboard   | `src/dashboard/`   | Relatório/visualização de métricas e mapa (vazio)    |
 
-## CURRENT STATE (v1.1 — 26/07/2026)
+## CURRENT STATE (v1.2 — 26/07/2026)
 
-- Branch `feat/bloco-4` (blocos 1-3 na `main`, PRs #2 a #6); implementação sem commit. Próximo: bloco 5 (simulação e estados, E4).
+- Branch `feat/bloco-5` (blocos 1-4 na `main`, PRs #2 a #7); implementação sem commit. Próximo: bloco 6 (zonas de exclusão, E5-2).
 - Ready:
   - Domínio base: `Coordenada` + distância Manhattan, `Pedido` e `Drone`/frota, com `ErroDominio` tipado.
   - Tipos imutáveis e funções puras; limites entram por parâmetro e `gerarId` é injetável (testes determinísticos).
   - Épico E1 completo: cadastro, consulta com filtros, busca por id e cancelamento de pedidos.
   - Épico E2 completo: frota criada da config no boot e consultável por `GET /drones` e `GET /drones/:id`.
   - Épico E3 completo: alocação greedy e roteamento nearest-neighbor em `POST /entregas/alocar` e `GET /entregas/rota`.
-  - `alocarPedidos` é pura e determinística — sem I/O, relógio ou aleatoriedade; validada com ~500 pedidos por semente fixa.
+  - Épico E4 completo: máquina de estados, linha do tempo de eventos, métricas de tempo e bateria consumível.
+  - `alocarPedidos` e `simular` são puras e determinísticas — sem I/O, relógio ou aleatoriedade.
+  - Relógio virtual: `POST /simulacao/avancar` aplica os eventos vencidos; `GET /drones` e `GET /pedidos` refletem o estado.
+  - Ciclo de vida da viagem (`planejada → em_execucao → concluida`) com filtro e `DELETE /entregas/concluidas`.
   - Pedidos e viagens sobrevivem a reinício — persistência JSON write-through, com escrita atômica.
   - Viagem cujo drone sumiu da frota é descartada no boot e seus pedidos voltam a `pendente` (D27).
   - Arquivos de pedidos e viagens validados por schema ao carregar; corrompidos, o boot falha sem tocá-los.
   - Erros padronizados `{ erro: { codigo, mensagem, detalhes? } }` por middleware central (E7-1).
-  - Testes verdes em domínio, persistência, repositórios e endpoints; cobertura total ~98%, domínio ~99%.
+  - Testes verdes em domínio, serviços, persistência, repositórios e endpoints; cobertura total ~98%, domínio ~99%.
   - Lint type-aware, formatação determinística e CI a cada push/PR — pipeline verde ponta a ponta.
-  - Detalhes: `context/walkthroughs/2026-07-26_Walkthrough_Bloco_4_Alocacao.md`.
+  - Detalhes: `context/walkthroughs/2026-07-26_Walkthrough_Bloco_5_Simulacao.md`.
 - Technical debt (ordem do roadmap — `docs/BACKLOG.md`):
-  - Bloco 5: máquina de estados, tempo de entrega e bateria (E4) — hoje nada executa as viagens geradas.
-  - Blocos 6-8: zonas de exclusão, dashboard e simulação de carga.
-  - Drone segue `idle`, na base, sem carga e com bateria cheia mesmo com viagem atribuída — contradiz `GET /entregas/rota`.
-  - Pedido para em `alocado`: `em_voo` e `entregue` existem no tipo, mas nada os produz até o bloco 5.
-  - Viagens acumulam entre alocações e nenhuma rota as descarta — só apagando `data/viagens.json`.
-  - `empacotar` só termina porque `separarInviaveis` garante que todo pedido restante cabe sozinho; o invariante não tem asserção.
+  - Blocos 6-8: zonas de exclusão (E5-2), dashboard e feedback (E6), simulação de carga (E8-2).
+  - Evento `carga_iniciada` carrega o instante em que o carregamento **termina** — nome e timestamp discordam.
+  - Cada mudança de status de viagem regrava `viagens.json` inteiro: O(n²) de I/O ao avançar o relógio (E8-2).
+  - Drone é atualizado pelo snapshot do evento, não recalculado — quebra se algo além da linha do tempo mexer nele.
+  - Viagem de drone inexistente é ignorada em silêncio pelo motor, contra o padrão de "falhar alto" do domínio.
+  - Guarda de `empacotar` sem teste, por decisão: `alocacao.ts:162` fica descoberta de propósito — não reexportar a função.
+  - Não há como reiniciar o relógio sem realocar; alocar no meio de uma rodada zera o instante corrente (D33).
   - Falha entre gravar pedidos e gravar viagens deixa pedido `alocado` sem viagem; a reconciliação do boot não cobre esse caso (D26).
-  - `GET /pedidos`, `GET /drones` e `GET /entregas/rota` sem paginação nem filtro — ponto de atenção na simulação de carga (E8-2).
+  - Nenhuma rota de listagem tem paginação; `GET /simulacao/eventos` é a de maior volume (E8-2).
 
 ## CRITICAL BUSINESS RULES
 
@@ -105,6 +116,18 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 - Distância: métrica Manhattan `|dx| + |dy|`. A unidade é a **quadra** — nunca km, em nenhum ponto do sistema.
 - Bateria e alcance são o mesmo recurso: bateria cheia equivale ao alcance total.
 - Status do pedido (`pendente → alocado → em_voo → entregue`, mais `cancelado`) é distinto da máquina de estados do drone.
+- Transições do drone vêm de uma tabela única em `drone.ts`; par fora dela — inclusive o mesmo estado — é erro, não no-op.
+- Transição e efeito físico são separados: `transitar` só muda estado, `moverPara` só muda posição e bateria.
+- A simulação é event-driven em tempo simulado: proibido `sleep`, `Date.now`, `Math.random` (D13).
+- Tempo = `distância ÷ velocidade` mais tempos fixos de carregar e de entregar por pedido (D14).
+- Recarga tem duração proporcional à bateria consumida e entra no makespan (D34).
+- Drones diferentes voam em paralelo; o mesmo drone executa suas viagens em série. Makespan = maior instante final.
+- Vários pedidos no mesmo destino são uma parada física com várias entregas, nunca várias chegadas.
+- A linha do tempo nunca é persistida: é recomputada das viagens a cada boot e a cada alocação (D31).
+- O relógio só avança para frente; instante retroativo é `AVANCO_INVALIDO`, não no-op (D32).
+- Avançar aplica o estado de verdade — pedidos e viagens são persistidos; não é projeção de leitura (D32).
+- Alocar recomputa a linha do tempo das viagens não concluídas e zera o relógio (D33).
+- Viagem `concluida` é ignorada pelo motor — é o que impede reexecutar entrega já feita (D35).
 - Cancelamento só é permitido a partir de `pendente`; cancelar em qualquer outro status — inclusive já `cancelado` — é erro, não no-op.
 - Erro → HTTP: 400 é entrada malformada, 422 é entrada válida que viola regra de negócio, 404 é inexistente. O mapa é único, em `src/api/erros.ts` — rota nenhuma escolhe status.
 - Valores de enum (prioridade, status, estado) são minúsculos, sem acento e em `snake_case` — seguros em JSON e query string.

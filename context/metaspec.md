@@ -1,6 +1,6 @@
 # MetaSpec — case_dti (DroneDelivery)
 
-> Context for AI agents. Version: 1.7 | Updated: 2026-07-27
+> Context for AI agents. Version: 1.8 | Updated: 2026-07-27
 
 ## IDENTITY
 
@@ -17,7 +17,7 @@ runtime     Node.js >= 20.12 (dev no Node 24 LTS)
 language    TypeScript (ESM, module NodeNext)
 api         REST — Express 4
 validação   Zod (nas bordas da API)
-tests       Vitest 4 (cobertura v8) + supertest (endpoints, sem porta real)
+tests       Vitest 4 (cobertura v8) + supertest (endpoints) + jsdom (JS da página do dashboard)
 persistência arquivo JSON local via porta injetável (sem banco)
 lint        ESLint 9 flat config + typescript-eslint (recommendedTypeChecked)
 format      Prettier 3 (printWidth 100; ignora *.md)
@@ -77,10 +77,10 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 | Entry       | `src/index.ts`     | Compõe persistências → repositórios → serviço → app, reconcilia viagens órfãs e sobe o HTTP |
 | Dashboard   | `src/dashboard/`   | Página HTML/CSS/SVG/JS inline, sem asset em disco nem host externo |
 
-## CURRENT STATE (v1.7 — 27/07/2026)
+## CURRENT STATE (v1.8 — 27/07/2026)
 
-- `main` limpa e em dia: blocos 1-7 e o saneamento de dívidas mergeados (PRs #2 a #12), sem branch de trabalho aberta.
-- Próximo: bloco 8 (E8-2 — simulação de carga), único item restante do backlog.
+- Blocos 1-7 e o saneamento mergeados na `main` (PRs #2 a #12); `fix/dashboard-svg` commitada e ainda não publicada.
+- Próximo: publicar a correção do dashboard e seguir para o bloco 8 (E8-2 — simulação de carga), único item restante do backlog.
 - Ready:
   - Domínio base: `Coordenada` + distância Manhattan, `Pedido` e `Drone`/frota, com `ErroDominio` tipado.
   - Tipos imutáveis e funções puras; limites entram por parâmetro e `gerarId` é injetável (testes determinísticos).
@@ -94,7 +94,9 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
   - `GET /mapa` devolve malha, base e zonas; somente leitura, derivada da config.
   - `mapa.caminho` devolve as células percorridas; `GET /entregas/rota?caminho=true` as expõe por perna, sob demanda.
   - `GET /pedidos/:id/rastreio` responde em linguagem amigável; `em_voo` cita a distância real ao cliente.
-  - `GET /dashboard` serve página autossuficiente com métricas, mapa SVG das rotas e controles de simulação.
+  - `GET /dashboard` serve página autossuficiente com métricas, mapa SVG das rotas, legenda e controles de simulação.
+  - O mapa desenha grade rotulada `0..N`, zonas, base, drones e os clientes ainda não entregues — entregue e cancelado saem da tela.
+  - O JS da página é exercitado de verdade: o teste roda o script real em jsdom, com `fetch` stubado (D45).
   - Métricas da simulação incluem entregas por drone e `droneMaisEficiente` (entregas ÷ distância).
   - Avanço do relógio grava cada arquivo uma vez, não uma vez por evento aplicado (D43).
   - `alocarPedidos` e `simular` são puras e determinísticas — sem I/O, relógio ou aleatoriedade.
@@ -111,7 +113,7 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
   - Bloco 8: simulação de carga (E8-2).
   - Zona nova não invalida viagem já planejada; a simulação recomputa as pernas e pode falhar com `BATERIA_INSUFICIENTE`.
   - `caminho` reflete as zonas atuais e `viagem.distanciaQuadras` as do planejamento — no mesmo payload podem discordar.
-  - O JS embutido em `dashboard/pagina.ts` nunca é executado por teste: a cobertura de 100% mede só a string produzida.
+  - Cobertura de `pagina.ts` mede a string produzida, não o JS avaliado no jsdom: o 100% do arquivo não fala sobre esse JS (D45).
   - Memo do `MapaCidade` cresce sem limite: uma entrada por origem consultada, cada uma de até `(cidadeTamanho+1)²` células (E8-2).
   - Evento `carga_iniciada` carrega o instante em que o carregamento **termina** — nome e timestamp discordam.
   - Drone é atualizado pelo snapshot do evento, não recalculado — quebra se algo além da linha do tempo mexer nele.

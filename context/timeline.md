@@ -1,6 +1,6 @@
 # Timeline — case_dti (DroneDelivery)
 
-> Evolutionary history. 12 phases | Jul/2026.
+> Evolutionary history. 13 phases | Jul/2026.
 
 ## Phase 0: Inicialização (Jul/2026)
 
@@ -128,15 +128,24 @@
 - Primeira leva de trabalho nascida de investigação de dívida, não do backlog.
 - Publicação das duas branches empilhadas custou um PR extra (#12): o re-apontamento automático do GitHub não substitui mergear o filho na feature antes.
 
+## Phase 12: Correção do dashboard (Jul/2026)
+
+- Commits: 48bcdf8, fe696cf, branch `fix/dashboard-svg`.
+- Subir a aplicação e olhar a tela expôs dois defeitos que testes e docs não pegavam: cliente nenhum desenhado e "malha" sem grade.
+- A classe `.cliente` estava aplicada à posição dos drones e `/pedidos` nunca era buscado — os pontos amarelos da tela eram a frota.
+- jsdom escolhido sobre extrair a lógica para um módulo: executa o script real da página, sem asset novo nem passo de build, preservando D41 (D45).
+- A dívida do JS sem teste foi reescrita, não fechada: o comportamento passa a ser testado, mas a cobertura segue medindo a string.
+- Primeira leva nascida de validação manual da aplicação rodando — não do backlog nem de investigação de dívida.
+
 ## Metrics Snapshot (2026-07-27)
 
 | Métrica            | Valor                          |
 | ------------------ | ------------------------------ |
 | Linguagem          | TypeScript (ESM)               |
 | Runtime            | Node.js 24 LTS (>= 20.12)      |
-| Fases              | ~12 (init + setup + planejamento + bloco 1 + ferramental + blocos 2-7 + saneamento) |
+| Fases              | ~13 (init + setup + planejamento + bloco 1 + ferramental + blocos 2-7 + saneamento + correção do dashboard) |
 | Backlog            | 8 épicos; E1-E7 concluídos; resta E8-2 (carga); ADRs em docs/DECISIONS.md |
 | API                | 5 rotas de pedido + 2 de drone + 3 de entrega + 3 de simulação + `/mapa` + `/dashboard` + `/health` |
 | Testes             | passing (~25 arquivos); cobertura total ~97%, domínio ~98% |
 | Verificação        | typecheck, lint, format, testes e build verdes no CI |
-| Git                | main com 12 PRs mergeados; sem branch de trabalho aberta |
+| Git                | main com 12 PRs mergeados; `fix/dashboard-svg` commitada, ainda não publicada |

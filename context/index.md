@@ -1,6 +1,6 @@
 # Context Index — case_dti (DroneDelivery)
 
-> Artifact map. Updated: 2026-07-27 (v1.5)
+> Artifact map. Updated: 2026-07-27 (v1.6)
 
 ## Quick Navigation
 
@@ -91,7 +91,7 @@ No artifacts.
 ### Dashboard
 | File                     | Responsibility                                            |
 | ------------------------ | ---------------------------------------------------------- |
-| `src/dashboard/pagina.ts`| HTML/CSS/SVG/JS inline como template string; zero host externo e zero asset em disco (D41) |
+| `src/dashboard/pagina.ts`| HTML/CSS/SVG/JS inline como template string; zero host externo e zero asset em disco (D41). Desenha grade rotulada, zonas, base, clientes não entregues e drones |
 
 ### Config
 | File                  | Responsibility                                  |
@@ -124,7 +124,7 @@ No artifacts.
 | Serviços     | `src/servicos/*.test.ts`             | passing |
 | API          | `src/api/rotas/*.test.ts` (supertest)| passing |
 | Borda        | `src/api/apresentadores/*.test.ts`, `src/api/schemas/*.test.ts` | passing |
-| Dashboard    | `src/dashboard/pagina.test.ts`       | passing |
+| Dashboard    | `src/dashboard/pagina.test.ts` (string + jsdom) | passing |
 
 > Toda implementação segue TDD: o teste falha antes do código que o faz passar.
 

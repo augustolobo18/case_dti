@@ -34,38 +34,87 @@ capacidade, alcance e priorizando entregas conforme a prioridade.
 
 ## 🧭 Escopo
 
-### Núcleo (foco inicial)
+### Núcleo — **completo**
 
-- [ ] Modelagem de domínio: `Pedido`, `Drone`, `Viagem`, `Coordenada`
-- [ ] Recebimento e validação de pedidos
-- [ ] Algoritmo de alocação de pacotes por viagem (capacidade + alcance)
-- [ ] Otimização por prioridade, peso e distância
-- [ ] API REST (`POST /pedidos`, `GET /entregas/rota`, `GET /drones/status`)
-- [ ] Testes unitários das regras principais
+- [x] Modelagem de domínio: `Pedido`, `Drone`, `Viagem`, `Coordenada`
+- [x] Recebimento e validação de pedidos
+- [x] Algoritmo de alocação de pacotes por viagem (capacidade + alcance)
+- [x] Otimização por prioridade, peso e distância
+- [x] API REST completa (pedidos, frota, entregas, simulação, mapa, dashboard)
+- [x] Testes unitários das regras principais
 
-### Diferenciais (avaliados por feature)
+### Diferenciais
 
 - [x] Máquina de estados do drone: `idle → carregando → em_voo → entregando → retornando → idle`
 - [x] Simulação de bateria (consumo por distância) e recarga na base
 - [x] Zonas de exclusão aérea (obstáculos entre pontos)
 - [x] Cálculo de tempo total de entrega
-- [ ] Fila de entrega (prioridade + tempo de chegada)
-- [x] Dashboard / relatório: entregas realizadas, tempo médio, drone mais eficiente, mapa
+- [x] Dashboard web: métricas, mapa da operação, cadastro de pedidos e estado da frota
 - [x] Feedback do cliente ("seu pacote está a N quadras")
+- [ ] Simulação de carga / paginação das listagens (E8-2 — **único item não entregue**)
 
-> Os itens são priorizados conforme o tempo disponível; o núcleo é entregue
-> primeiro e de forma sólida.
+> A fila de entrega foi absorvida pela alocação: a ordenação por prioridade →
+> distância → peso (D11) já é a política de fila, aplicada a cada rodada.
 
 ---
 
 ## 🛠️ Stack
 
-- **Linguagem:** TypeScript (ESM)
+- **Linguagem:** TypeScript (ESM, `module NodeNext`)
 - **Runtime:** Node.js `>= 20.12` (desenvolvido no Node 24 LTS)
-- **API:** REST com Express
-- **Validação:** Zod (nas bordas da API)
-- **Testes:** Vitest (com cobertura v8)
-- **Dashboard:** visualização simples (web ou ASCII)
+- **API:** REST com Express 4
+- **Validação:** Zod, nas bordas da API
+- **Persistência:** arquivo JSON local, por porta injetável (sem banco)
+- **Testes:** Vitest 4 (cobertura v8), supertest nos endpoints, jsdom no JS do dashboard
+- **Qualidade:** ESLint 9 type-aware + Prettier 3, com CI no GitHub Actions
+- **Dashboard:** página web autossuficiente (HTML/CSS/SVG/JS inline, sem CDN)
+
+---
+
+## 🏛️ Arquitetura
+
+O domínio é isolado da infraestrutura: as regras de negócio são funções puras,
+testáveis sem HTTP. Os endpoints são casca fina sobre elas. Só `src/index.ts`
+escolhe implementações concretas.
+
+| Camada       | Diretório          | Responsabilidade                                            |
+| ------------ | ------------------ | ------------------------------------------------------------ |
+| Domínio      | `src/domain/`      | Pedido, drone, viagem, mapa, alocação, simulação — tudo puro |
+| Persistência | `src/infra/`       | Portas `carregar`/`salvar` + implementações JSON e memória    |
+| Repositório  | `src/repositorio/` | Estado em memória com write-through                           |
+| Serviços     | `src/servicos/`    | Orquestra domínio + repositórios, sem HTTP                    |
+| API          | `src/api/`         | Rotas, schemas Zod, apresentadores e mapa erro → HTTP         |
+| Dashboard    | `src/dashboard/`   | Página HTML/CSS/SVG/JS inline                                 |
+
+O coração do sistema é `src/domain/alocacao.ts`: a heurística **greedy** que
+decide quais pacotes vão em qual viagem. É pura, determinística e a parte com
+maior cobertura de testes, incluindo cenários de carga com centenas de pedidos.
+
+---
+
+## 📚 Documentação do projeto
+
+| Documento | Conteúdo |
+| --- | --- |
+| [`docs/BACKLOG.md`](docs/BACKLOG.md) | Personas, 8 épicos e histórias com critérios de aceite |
+| [`docs/DECISIONS.md`](docs/DECISIONS.md) | 46 ADRs (D1–D46): contexto, escolha, justificativa e alternativas descartadas |
+| [`context/`](context/) | Documentação de contexto para agentes de IA (metaspec, index, timeline) |
+| [`context/walkthroughs/`](context/walkthroughs/) | Walkthrough técnico de cada bloco implementado |
+
+### 🤖 Skills de IA utilizadas
+
+O desenvolvimento foi conduzido com agentes de IA apoiados por *skills*
+próprias — carregamento de contexto, planos de implementação, walkthroughs e
+manutenção da documentação de contexto.
+
+**As skills estão publicadas em
+[github.com/augustolobo18/agent-context-skills](https://github.com/augustolobo18/agent-context-skills).**
+
+O rastro do processo ficou versionado no repositório: cada bloco tem um plano
+aprovado antes do código (`plans/old/`), um walkthrough técnico depois
+(`context/walkthroughs/`) e as decisões registradas como ADRs
+(`docs/DECISIONS.md`). Toda a implementação seguiu **TDD** — o teste falha
+antes do código que o faz passar.
 
 ---
 
@@ -103,9 +152,22 @@ npm start
 ```
 
 Variáveis de ambiente (opcionais) em `.env.example` — capacidade/alcance do drone,
-porta e coordenada da base. Copie para `.env` para sobrescrever os padrões.
+porta, coordenada da base, tempos da simulação e zonas de exclusão. Copie para
+`.env` para sobrescrever os padrões.
+
+### Primeiros passos depois de subir
+
+1. Abra **<http://localhost:3000/dashboard>** — o sistema começa **vazio**, sem
+   nenhum pedido de exemplo.
+2. Cadastre pedidos pelo formulário da página (ou por `POST /pedidos`).
+3. Clique em **Alocar pedidos** para gerar as viagens.
+4. Clique em **Avançar relógio** para a simulação progredir, e acompanhe a frota
+   e os pedidos mudarem de estado.
 
 Health-check: `GET http://localhost:3000/health`.
+
+> **Zerar o estado:** pedidos e viagens são persistidos em `data/` (fora do
+> controle de versão). Pare o servidor e apague a pasta para recomeçar do zero.
 
 A cada push e pull request, o CI (GitHub Actions) roda `typecheck`, `lint`,
 `format:check`, `test` e `build`, nessa ordem.
@@ -289,9 +351,20 @@ drone mais eficiente, D19) e desenha o mapa em SVG a partir de `/mapa`, `/simula
 de exclusão, rotas contornando-as, os destinos dos pedidos ainda não entregues (`pendente`,
 `alocado`, `em_voo`) como marcador de cliente e a posição de cada drone como marcador próprio,
 visualmente distinto do cliente. Uma legenda fixa abaixo do mapa nomeia os quatro marcadores (base,
-zona de exclusão, cliente, drone). Os botões "Alocar pedidos" e "Avançar relógio" chamam
-`POST /entregas/alocar` e `POST /simulacao/avancar` e recarregam os dados. Abra
-`http://localhost:3000/dashboard` no navegador com o servidor de pé.
+zona de exclusão, cliente, drone).
+
+Além do mapa, a página opera o sistema inteiro sem `curl`:
+
+- **Cadastrar pedido** — formulário com `x`, `y`, peso e prioridade (`POST /pedidos`).
+- **Frota** — uma linha por drone com fase legível (Ocioso, Carregando, Em voo,
+  Entregando, Retornando), posição, carga contra a capacidade e bateria em
+  percentual e em quadras.
+- **Pedidos** — uma linha por pedido, com botão *Cancelar* apenas nos `pendente`,
+  refletindo a regra de negócio em vez de deixar a API recusar depois do clique.
+- **Alocar pedidos** e **Avançar relógio** — chamam `POST /entregas/alocar` e
+  `POST /simulacao/avancar` e recarregam os dados.
+
+Abra `http://localhost:3000/dashboard` no navegador com o servidor de pé.
 
 **Consultar o mapa (zonas e tamanho da malha):**
 
@@ -534,18 +607,31 @@ curl -X POST http://localhost:3000/simulacao/avancar \
 
 ---
 
+## ✅ Qualidade
+
+- **~350 testes** em 25 arquivos, cobertura total **~97%** (domínio **~98%**).
+- Toda implementação em **TDD**: teste vermelho pelo motivo certo antes do código.
+- Domínio testável sem HTTP; nenhum teste escreve em disco (persistência em memória).
+- CI a cada push e PR: `typecheck` → `lint` → `format:check` → `test` → `build`.
+- Erros padronizados num envelope único, com o mapa código → HTTP centralizado.
+
+Rode `npm run coverage` para o relatório completo.
+
+---
+
 ## 📦 Entregáveis
 
 **Obrigatórios**
 
-- README de execução
-- Testes unitários
-- Repositório público no GitHub
+- [x] README de execução (este arquivo)
+- [x] Testes unitários
+- [x] Repositório público no GitHub
 
 **Opcionais**
 
-- Markdown de regras, memórias e prompts de IA utilizados
-- Deploy / link do projeto funcionando
+- [x] Markdown de regras e decisões ([`docs/DECISIONS.md`](docs/DECISIONS.md), [`docs/BACKLOG.md`](docs/BACKLOG.md))
+- [x] Skills de IA utilizadas, publicadas em [agent-context-skills](https://github.com/augustolobo18/agent-context-skills)
+- [ ] Deploy / link do projeto funcionando
 
 ---
 

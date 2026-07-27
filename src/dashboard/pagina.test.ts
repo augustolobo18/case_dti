@@ -146,6 +146,47 @@ describe('paginaDashboard — comportamento do script embutido (jsdom)', () => {
     expect(rotulos).toContain('10');
   });
 
+  it('lista um drone por linha, com fase legível, posição, carga e bateria', async () => {
+    const drones = [
+      {
+        id: 'drone-1',
+        estado: 'em_voo',
+        posicao: { x: 3, y: 4 },
+        cargaKg: 6,
+        capacidadeKg: 10,
+        bateriaQuadras: 26,
+        alcanceQuadras: 40,
+        bateriaPercentual: 65,
+      },
+      {
+        id: 'drone-2',
+        estado: 'idle',
+        posicao: { x: 0, y: 0 },
+        cargaKg: 0,
+        capacidadeKg: 10,
+        bateriaQuadras: 40,
+        alcanceQuadras: 40,
+        bateriaPercentual: 100,
+      },
+    ];
+
+    const documento = await montarPagina({ '/drones': drones });
+
+    const linhas = documento.querySelectorAll('#lista-drones tbody tr');
+    expect(linhas.length).toBe(2);
+
+    const primeira = linhas[0]?.textContent ?? '';
+    expect(primeira).toContain('drone-1');
+    // fase em linguagem de operação, não o valor cru do enum
+    expect(primeira).toContain('Em voo');
+    expect(primeira).toContain('(3, 4)');
+    expect(primeira).toContain('6');
+    expect(primeira).toContain('65%');
+    expect(primeira).toContain('26');
+
+    expect(linhas[1]?.textContent ?? '').toContain('Ocioso');
+  });
+
   it('lista um pedido por linha, com botão cancelar apenas nos pendentes', async () => {
     const pedidos = [
       { id: 'p1', destino: { x: 2, y: 3 }, pesoKg: 1, prioridade: 'alta', status: 'pendente' },

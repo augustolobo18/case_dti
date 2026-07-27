@@ -1,6 +1,6 @@
 # Context Index — case_dti (DroneDelivery)
 
-> Artifact map. Updated: 2026-07-27 (v1.8)
+> Artifact map. Updated: 2026-07-27 (v1.9)
 
 ## Quick Navigation
 
@@ -93,7 +93,7 @@ No artifacts.
 ### Dashboard
 | File                     | Responsibility                                            |
 | ------------------------ | ---------------------------------------------------------- |
-| `src/dashboard/pagina.ts`| HTML/CSS/SVG/JS inline como template string; zero host externo e zero asset em disco (D41). Mapa com grade rotulada, zonas, base, clientes e drones; formulário de cadastro e lista de pedidos |
+| `src/dashboard/pagina.ts`| HTML/CSS/SVG/JS inline como template string; zero host externo e zero asset em disco (D41). Mapa com grade rotulada, zonas, base, clientes e drones; cadastro de pedido e tabelas de frota e pedidos |
 
 ### Config
 | File                  | Responsibility                                  |
@@ -110,7 +110,7 @@ No artifacts.
 ### Documentação
 | File               | Responsibility                                            |
 | ------------------ | --------------------------------------------------------- |
-| `README.md`        | Descrição do projeto, regras, escopo, execução, API       |
+| `README.md`        | Descrição, escopo, arquitetura, execução, API e link das skills de IA |
 | `CLAUDE.md`        | Guia do Claude Code: comandos e diretrizes de arquitetura |
 | `docs/BACKLOG.md`  | Épicos, histórias (critérios de aceite) e roadmap         |
 | `docs/DECISIONS.md`| Registro de decisões (ADR) com contexto e justificativa   |

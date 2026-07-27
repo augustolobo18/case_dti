@@ -148,4 +148,4 @@
 | API                | 5 rotas de pedido + 2 de drone + 3 de entrega + 3 de simulação + `/mapa` + `/dashboard` + `/health` |
 | Testes             | passing (~25 arquivos); cobertura total ~97%, domínio ~98% |
 | Verificação        | typecheck, lint, format, testes e build verdes no CI |
-| Git                | main com 12 PRs mergeados; `fix/dashboard-svg` commitada, ainda não publicada |
+| Git                | main com 13 PRs mergeados; sem branch de trabalho aberta |

@@ -1,6 +1,6 @@
 # MetaSpec — case_dti (DroneDelivery)
 
-> Context for AI agents. Version: 1.8 | Updated: 2026-07-27
+> Context for AI agents. Version: 1.9 | Updated: 2026-07-27
 
 ## IDENTITY
 
@@ -77,10 +77,10 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 | Entry       | `src/index.ts`     | Compõe persistências → repositórios → serviço → app, reconcilia viagens órfãs e sobe o HTTP |
 | Dashboard   | `src/dashboard/`   | Página HTML/CSS/SVG/JS inline, sem asset em disco nem host externo |
 
-## CURRENT STATE (v1.8 — 27/07/2026)
+## CURRENT STATE (v1.9 — 27/07/2026)
 
-- Blocos 1-7 e o saneamento mergeados na `main` (PRs #2 a #12); `fix/dashboard-svg` commitada e ainda não publicada.
-- Próximo: publicar a correção do dashboard e seguir para o bloco 8 (E8-2 — simulação de carga), único item restante do backlog.
+- `main` limpa e em dia: blocos 1-7, saneamento e correção do dashboard mergeados (PRs #2 a #13), sem branch de trabalho aberta.
+- Próximo: bloco 8 (E8-2 — simulação de carga), único item restante do backlog.
 - Ready:
   - Domínio base: `Coordenada` + distância Manhattan, `Pedido` e `Drone`/frota, com `ErroDominio` tipado.
   - Tipos imutáveis e funções puras; limites entram por parâmetro e `gerarId` é injetável (testes determinísticos).
@@ -108,7 +108,7 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
   - Erros padronizados `{ erro: { codigo, mensagem, detalhes? } }` por middleware central (E7-1).
   - Testes verdes em domínio, serviços, persistência, repositórios e endpoints; cobertura total ~98%, domínio ~98,5%.
   - Lint type-aware, formatação determinística e CI a cada push/PR — pipeline verde ponta a ponta.
-  - Detalhes: `context/walkthroughs/2026-07-27_Walkthrough_Bloco_7_Dashboard_Feedback.md`.
+  - Detalhes: `context/walkthroughs/2026-07-27_Walkthrough_Correcao_SVG_Dashboard.md` (E6 completo: `..._Bloco_7_Dashboard_Feedback.md`).
 - Technical debt (ordem do roadmap — `docs/BACKLOG.md`):
   - Bloco 8: simulação de carga (E8-2).
   - Zona nova não invalida viagem já planejada; a simulação recomputa as pernas e pode falhar com `BATERIA_INSUFICIENTE`.

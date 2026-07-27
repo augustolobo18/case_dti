@@ -1,6 +1,6 @@
 # Context Index — case_dti (DroneDelivery)
 
-> Artifact map. Updated: 2026-07-27 (v1.6)
+> Artifact map. Updated: 2026-07-27 (v1.7)
 
 ## Quick Navigation
 
@@ -20,7 +20,8 @@ No artifacts.
 
 | File                                          | Date       | Description                                  | Status |
 | --------------------------------------------- | ---------- | -------------------------------------------- | ------ |
-| `2026-07-27_Walkthrough_Bloco_7_Dashboard_Feedback.md` | 2026-07-27 | Épico E6: mapa legível, caminho observável, dashboard, rastreio e ADRs D39–D42 | atual |
+| `2026-07-27_Walkthrough_Correcao_SVG_Dashboard.md` | 2026-07-27 | Clientes e grade no mapa SVG; jsdom sobre o script real (D45) | atual |
+| `2026-07-27_Walkthrough_Bloco_7_Dashboard_Feedback.md` | 2026-07-27 | Épico E6: mapa legível, caminho observável, dashboard, rastreio e ADRs D39–D42 | anterior |
 | `2026-07-27_Walkthrough_Bloco_6_Zonas_Exclusao.md` | 2026-07-27 | Épico E5: mapa, pathfinding BFS, motivos de inviabilidade e ADRs D36–D38 | anterior |
 | `2026-07-26_Walkthrough_Bloco_5_Simulacao.md` | 2026-07-26 | Épico E4: estados, motor de simulação, tempo, bateria e ADRs D30–D35 | anterior |
 | `2026-07-26_Walkthrough_Bloco_4_Alocacao.md`  | 2026-07-26 | Épico E3: viagem, greedy, roteamento e ADRs D25–D29 | anterior |

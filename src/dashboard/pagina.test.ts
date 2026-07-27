@@ -96,6 +96,19 @@ describe('paginaDashboard', () => {
     expect(paginaDashboard()).toBe(paginaDashboard());
   });
 
+  it('tem formulário de cadastro com x, y, peso e prioridade', () => {
+    const html = paginaDashboard();
+
+    expect(html).toContain('id="form-pedido"');
+    expect(html).toContain('id="campo-x"');
+    expect(html).toContain('id="campo-y"');
+    expect(html).toContain('id="campo-peso"');
+    expect(html).toContain('id="campo-prioridade"');
+    expect(html).toMatch(/value="alta"/);
+    expect(html).toMatch(/value="media"/);
+    expect(html).toMatch(/value="baixa"/);
+  });
+
   it('tem legenda estática nomeando base, zona, cliente e drone', () => {
     const html = paginaDashboard();
 
@@ -131,6 +144,23 @@ describe('paginaDashboard — comportamento do script embutido (jsdom)', () => {
     );
     expect(rotulos).toContain('0');
     expect(rotulos).toContain('10');
+  });
+
+  it('lista um pedido por linha, com botão cancelar apenas nos pendentes', async () => {
+    const pedidos = [
+      { id: 'p1', destino: { x: 2, y: 3 }, pesoKg: 1, prioridade: 'alta', status: 'pendente' },
+      { id: 'p2', destino: { x: 4, y: 5 }, pesoKg: 2, prioridade: 'media', status: 'alocado' },
+      { id: 'p3', destino: { x: 6, y: 7 }, pesoKg: 3, prioridade: 'baixa', status: 'entregue' },
+    ];
+
+    const documento = await montarPagina({ '/pedidos': pedidos });
+
+    const linhas = documento.querySelectorAll('#lista-pedidos tbody tr');
+    expect(linhas.length).toBe(3);
+
+    const botoesCancelar = documento.querySelectorAll('#lista-pedidos .botao-cancelar');
+    expect(botoesCancelar.length).toBe(1);
+    expect(botoesCancelar[0]?.getAttribute('data-pedido-id')).toBe('p1');
   });
 
   it('desenha um .cliente por pedido não entregue e um .drone por drone, seletores disjuntos', async () => {

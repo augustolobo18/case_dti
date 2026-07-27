@@ -51,6 +51,11 @@ function comoListaPedidos(corpo: unknown): Pedido[] {
   return corpo as Pedido[];
 }
 
+/** Corpo da resposta de `GET /simulacao`, do qual só o relógio interessa aqui. */
+function comoEstadoSimulacao(corpo: unknown): { readonly instanteAtual: number } {
+  return corpo as { readonly instanteAtual: number };
+}
+
 let pedidos: RepositorioPedidos;
 let viagens: RepositorioViagens;
 let simulacao: ServicoSimulacao;
@@ -204,6 +209,35 @@ describe('POST /entregas/alocar', () => {
 
     expect(resposta.status).toBe(422);
     expect(comoErro(resposta.body).erro.codigo).toBe('FROTA_VAZIA');
+  });
+
+  it('sem pedidos pendentes não mexe no relógio: alocação vazia é inócua', async () => {
+    pedidos.adicionar(novoPedidoAjudante({ x: 1, y: 0, pesoKg: 3 }));
+    await request(app).post('/entregas/alocar');
+    await request(app).post('/simulacao/avancar').send({ minutos: 6 });
+
+    const antes = comoEstadoSimulacao((await request(app).get('/simulacao')).body).instanteAtual;
+    expect(antes).toBe(6);
+
+    // segunda alocação: não há mais pendentes, então nada é criado
+    const resposta = await request(app).post('/entregas/alocar');
+    expect(comoAlocacao(resposta.body).viagens).toHaveLength(0);
+
+    // o relógio precisa continuar onde estava — recomputar aqui rearmaria a
+    // linha do tempo de viagens já executadas e travaria a simulação
+    const depois = comoEstadoSimulacao((await request(app).get('/simulacao')).body).instanteAtual;
+    expect(depois).toBe(6);
+  });
+
+  it('depois de uma alocação vazia, avançar o relógio continua funcionando', async () => {
+    pedidos.adicionar(novoPedidoAjudante({ x: 1, y: 0, pesoKg: 3 }));
+    await request(app).post('/entregas/alocar');
+    await request(app).post('/simulacao/avancar').send({ minutos: 6 });
+    await request(app).post('/entregas/alocar');
+
+    const resposta = await request(app).post('/simulacao/avancar').send({ minutos: 10 });
+
+    expect(resposta.status).toBe(200);
   });
 });
 

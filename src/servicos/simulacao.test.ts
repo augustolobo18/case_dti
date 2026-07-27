@@ -367,3 +367,49 @@ describe('criarServicoSimulacao — avancarPara grava uma vez por arquivo (D43)'
     expect(espiaViagens).not.toHaveBeenCalled();
   });
 });
+
+describe('recomputar — replanejamento no meio da rodada (D46)', () => {
+  function novoServico() {
+    return criarServicoSimulacao({
+      pedidos,
+      frota,
+      viagens,
+      base: BASE,
+      tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
+    });
+  }
+
+  it('desfaz o progresso das viagens não concluídas, de modo que o avanço volta a funcionar', () => {
+    const pedido = pedidos.adicionar(novoPedidoAjudante(1, 0, 1));
+    alocarEPersistir();
+    const servico = novoServico();
+    servico.recomputar();
+    servico.avancarPara(9);
+
+    expect(pedidos.buscarPorId(pedido.id).status).toBe('entregue');
+    expect(servico.instanteAtual()).toBe(9);
+
+    // replanejamento: recomputar zera o relógio, então precisa zerar o mundo junto
+    servico.recomputar();
+
+    expect(servico.instanteAtual()).toBe(0);
+    expect(pedidos.buscarPorId(pedido.id).status).toBe('alocado');
+    expect(() => servico.avancarPara(9)).not.toThrow();
+    expect(pedidos.buscarPorId(pedido.id).status).toBe('entregue');
+  });
+
+  it('não mexe em pedido de viagem já concluída', () => {
+    const pedido = pedidos.adicionar(novoPedidoAjudante(1, 0, 1));
+    alocarEPersistir();
+    const servico = novoServico();
+    servico.recomputar();
+    servico.avancarPara(200);
+
+    expect(viagens.listar()[0]?.status).toBe('concluida');
+
+    servico.recomputar();
+
+    expect(pedidos.buscarPorId(pedido.id).status).toBe('entregue');
+  });
+});

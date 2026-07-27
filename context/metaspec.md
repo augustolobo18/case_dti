@@ -1,6 +1,6 @@
 # MetaSpec — case_dti (DroneDelivery)
 
-> Context for AI agents. Version: 1.4 | Updated: 2026-07-27
+> Context for AI agents. Version: 1.5 | Updated: 2026-07-27
 
 ## IDENTITY
 
@@ -27,7 +27,7 @@ dashboard   visualização simples (web ou ASCII)
 
 ## ARCHITECTURE
 
-Fluxo alvo (E1–E5 implementados; dashboard pendente):
+Fluxo (E1–E7 implementados):
 
 ```
 POST /pedidos ──> Zod (forma) ──> Domínio (regra) ──> Repositório ──> JSON
@@ -51,7 +51,13 @@ POST /entregas/alocar ───────────────────�
                                        v
        GET /drones (idle→carregando→em_voo→entregando→retornando)
        GET /pedidos (pendente→alocado→em_voo→entregue)
-       GET /entregas/rota · GET /simulacao · Dashboard (pendente)
+       GET /entregas/rota[?caminho=true] · GET /simulacao
+       GET /mapa · GET /pedidos/:id/rastreio
+                                       │
+                                       v
+                      GET /dashboard (página HTML inline)
+                consome as rotas acima; controles chamam
+                POST /entregas/alocar e POST /simulacao/avancar
 ```
 
 Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementações concretas.
@@ -60,7 +66,8 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 | ----------- | ------------------ | ---------------------------------------------------- |
 | Config      | `src/config.ts`    | Constantes: capacidade, alcance, malha, frota, base, porta, arquivo de pedidos (env) |
 | Domínio     | `src/domain/`      | `Coordenada` + distância, `Pedido`, `Drone`/frota, `ErroDominio` |
-| Mapa        | `src/domain/`      | `MapaCidade`: zonas de exclusão e distância por BFS memoizado por origem, puro |
+| Mapa        | `src/domain/`      | `MapaCidade`: zonas, distância e caminho por BFS memoizado por origem, puro |
+| Rastreio    | `src/domain/`      | Mensagem de status em linguagem amigável a partir de pedido + drone + mapa, pura |
 | Alocação    | `src/domain/`      | `Viagem` + roteamento nearest-neighbor; ordenação e empacotamento greedy, puros |
 | Simulação   | `src/domain/`      | Máquina de estados do drone e motor que transforma viagens em eventos com timestamps, puros |
 | Persistência| `src/infra/`       | Portas `carregar`/`salvar` de pedidos e viagens, implementações de arquivo JSON e de memória, schemas e erro próprios |
@@ -68,11 +75,12 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 | Serviços    | `src/servicos/`    | Orquestra domínio + repositórios sem HTTP; guarda o relógio virtual e aplica os eventos |
 | API         | `src/api/`         | Express; rotas, schemas Zod, apresentadores, mapa erro→HTTP e middleware central |
 | Entry       | `src/index.ts`     | Compõe persistências → repositórios → serviço → app, reconcilia viagens órfãs e sobe o HTTP |
-| Dashboard   | `src/dashboard/`   | Relatório/visualização de métricas e mapa (vazio)    |
+| Dashboard   | `src/dashboard/`   | Página HTML/CSS/SVG/JS inline, sem asset em disco nem host externo |
 
-## CURRENT STATE (v1.4 — 27/07/2026)
+## CURRENT STATE (v1.5 — 27/07/2026)
 
-- Branch `main` limpa, blocos 1-6 mergeados (PRs #2 a #9). Próximo: bloco 7 (E6-3 e E6-4 antes de E6-1/E6-2).
+- Branch `feat/bloco-7` com o épico E6 pronto e **sem commit**; blocos 1-6 já mergeados (PRs #2 a #9).
+- Próximo: commit + PR do bloco 7, depois bloco 8 (E8-2, simulação de carga).
 - Ready:
   - Domínio base: `Coordenada` + distância Manhattan, `Pedido` e `Drone`/frota, com `ErroDominio` tipado.
   - Tipos imutáveis e funções puras; limites entram por parâmetro e `gerarId` é injetável (testes determinísticos).
@@ -82,6 +90,12 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
   - Épico E4 completo: máquina de estados, linha do tempo de eventos, métricas de tempo e bateria consumível.
   - Épico E5 completo: zonas de exclusão da config e distância que as contorna alimentando alcance, bateria, roteamento e tempo.
   - Sem zonas configuradas, a distância volta a ser exatamente Manhattan por atalho no código — não só por teste de regressão.
+  - Épico E6 completo: mapa legível, caminho observável, dashboard web e rastreio ao cliente.
+  - `GET /mapa` devolve malha, base e zonas; somente leitura, derivada da config.
+  - `mapa.caminho` devolve as células percorridas; `GET /entregas/rota?caminho=true` as expõe por perna, sob demanda.
+  - `GET /pedidos/:id/rastreio` responde em linguagem amigável; `em_voo` cita a distância real ao cliente.
+  - `GET /dashboard` serve página autossuficiente com métricas, mapa SVG das rotas e controles de simulação.
+  - Métricas da simulação incluem entregas por drone e `droneMaisEficiente` (entregas ÷ distância).
   - `alocarPedidos` e `simular` são puras e determinísticas — sem I/O, relógio ou aleatoriedade.
   - Relógio virtual: `POST /simulacao/avancar` aplica os eventos vencidos; `GET /drones` e `GET /pedidos` refletem o estado.
   - Ciclo de vida da viagem (`planejada → em_execucao → concluida`) com filtro e `DELETE /entregas/concluidas`.
@@ -91,12 +105,13 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
   - Erros padronizados `{ erro: { codigo, mensagem, detalhes? } }` por middleware central (E7-1).
   - Testes verdes em domínio, serviços, persistência, repositórios e endpoints; cobertura total ~98%, domínio ~98,5%.
   - Lint type-aware, formatação determinística e CI a cada push/PR — pipeline verde ponta a ponta.
-  - Detalhes: `context/walkthroughs/2026-07-27_Walkthrough_Bloco_6_Zonas_Exclusao.md`.
+  - Detalhes: `context/walkthroughs/2026-07-27_Walkthrough_Bloco_7_Dashboard_Feedback.md`.
 - Technical debt (ordem do roadmap — `docs/BACKLOG.md`):
-  - Blocos 7-8: dashboard e feedback (E6), simulação de carga (E8-2).
+  - Bloco 8: simulação de carga (E8-2).
   - Zona nova não invalida viagem já planejada; a simulação recomputa as pernas e pode falhar com `BATERIA_INSUFICIENTE`.
-  - O caminho que contorna a zona não é observável: a viagem guarda paradas e distância, nunca as células do desvio (E6-4; exige ADR do caminho canônico).
-  - Zonas não são expostas por rota nenhuma — o cliente do dashboard não tem como desenhá-las (E6-3).
+  - `caminho` reflete as zonas atuais e `viagem.distanciaQuadras` as do planejamento — no mesmo payload podem discordar.
+  - O JS embutido em `dashboard/pagina.ts` nunca é executado por teste: a cobertura de 100% mede só a string produzida.
+  - `rastreio.ts` formata plural para 1 quadra, mas a faixa "chegando" (`<= 1`) retorna antes — ramo inalcançável.
   - Memo do `MapaCidade` cresce sem limite: uma entrada por origem consultada, cada uma de até `(cidadeTamanho+1)²` células (E8-2).
   - Evento `carga_iniciada` carrega o instante em que o carregamento **termina** — nome e timestamp discordam.
   - Cada mudança de status de viagem regrava `viagens.json` inteiro: O(n²) de I/O ao avançar o relógio (E8-2).
@@ -129,6 +144,13 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 - A assimetria acima vale porque dois pontos alcançáveis da base estão na mesma componente conexa — logo alcançáveis entre si.
 - Destino em zona (`DESTINO_BLOQUEADO`) ou cercado (`SEM_ROTA`) é reportado na alocação, nunca rejeitado no cadastro (D38).
 - Base dentro de zona é config incoerente: o boot falha, como no invariante de alcançabilidade.
+- `distancia` e `caminho` passam pelo mesmo `campoDistanciasDe(origem)` — é o que impede os dois divergirem quanto ao desvio.
+- Caminho canônico entre dois pontos: backtracking sobre esse campo, desempatando por menor `x` e depois menor `y` — o mesmo critério de D12 (D39).
+- Caminho é derivado do mapa e nunca persistido; só entra na resposta quando pedido por `?caminho=true` (D40).
+- Zonas são expostas por `GET /mapa` somente para leitura: continuam vindo do `.env` e não são editáveis por API.
+- Rastreio ao cliente usa a distância real do mapa, não Manhattan reta — é a única métrica do sistema depois de D36 (D42).
+- Rastreio degrada em vez de falhar: sem drone localizável ou sem rota, responde 200 com mensagem sem distância.
+- Drone mais eficiente = entregas concluídas ÷ distância percorrida; empate por menor `droneId`; sem viagens, `null` (D19).
 - A distância total da simulação é acumulada das pernas percorridas, não lida de `viagem.distanciaQuadras` — imuniza contra arquivo gravado antes das zonas.
 - Bateria e alcance são o mesmo recurso: bateria cheia equivale ao alcance total.
 - Status do pedido (`pendente → alocado → em_voo → entregue`, mais `cancelado`) é distinto da máquina de estados do drone.

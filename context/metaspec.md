@@ -1,6 +1,6 @@
 # MetaSpec — case_dti (DroneDelivery)
 
-> Context for AI agents. Version: 2.0 | Updated: 2026-07-27
+> Context for AI agents. Version: 2.1 | Updated: 2026-07-27
 
 ## IDENTITY
 
@@ -77,10 +77,10 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 | Entry       | `src/index.ts`     | Compõe persistências → repositórios → serviço → app, reconcilia viagens órfãs e sobe o HTTP |
 | Dashboard   | `src/dashboard/`   | Página HTML/CSS/SVG/JS inline, sem asset em disco nem host externo |
 
-## CURRENT STATE (v2.0 — 27/07/2026)
+## CURRENT STATE (v2.1 — 27/07/2026)
 
-- Blocos 1-7, saneamento e correção do dashboard na `main` (PRs #2 a #13); `fix/relogio-e-cadastro` publicada no PR #14, aguardando merge.
-- Próximo: mergear o #14 e seguir para o bloco 8 (E8-2 — simulação de carga), único item restante do backlog.
+- Blocos 1-7, saneamento e as duas correções do dashboard na `main` (PRs #2 a #14); `feat/dashboard-drones` publicada no PR #15, aguardando merge.
+- Próximo: mergear o #15 e seguir para o bloco 8 (E8-2 — simulação de carga), único item restante do backlog.
 - Ready:
   - Domínio base: `Coordenada` + distância Manhattan, `Pedido` e `Drone`/frota, com `ErroDominio` tipado.
   - Tipos imutáveis e funções puras; limites entram por parâmetro e `gerarId` é injetável (testes determinísticos).
@@ -98,6 +98,8 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
   - O mapa desenha grade rotulada `0..N`, zonas, base, drones e os clientes ainda não entregues — entregue e cancelado saem da tela.
   - O JS da página é exercitado de verdade: o teste roda o script real em jsdom, com `fetch` stubado (D45).
   - Dashboard cadastra pedido pela tela e lista os pedidos, com cancelar só nos `pendente` — a UI reflete a regra, não a descobre pelo erro.
+  - Tabela da frota mostra fase, posição, carga e bateria; estado fora do dicionário de rótulos cai no valor cru, em vez de sumir.
+  - README apresenta arquitetura, documentação e as skills de IA do projeto (repo `agent-context-skills`).
   - Replanejar é coerente: alocar reinicia as viagens não concluídas junto com o relógio, em vez de reaplicar eventos sobre estado avançado (D46).
   - Métricas da simulação incluem entregas por drone e `droneMaisEficiente` (entregas ÷ distância).
   - Avanço do relógio grava cada arquivo uma vez, não uma vez por evento aplicado (D43).
@@ -119,6 +121,7 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
   - Memo do `MapaCidade` cresce sem limite: uma entrada por origem consultada, cada uma de até `(cidadeTamanho+1)²` células (E8-2).
   - Evento `carga_iniciada` carrega o instante em que o carregamento **termina** — nome e timestamp discordam.
   - Drone é atualizado pelo snapshot do evento, não recalculado — quebra se algo além da linha do tempo mexer nele.
+  - O snapshot é o estado *antes* do efeito: entre `decolagem` e o evento seguinte, a tabela da frota mostra "Em voo" na base com bateria cheia.
   - Guarda de `empacotar` sem teste, por decisão: fica descoberta de propósito — não reexportar a função.
   - Replanejar é um recomeço, não simulação incremental: alocar no meio de uma rodada refaz do zero as entregas das viagens não concluídas (D46).
   - `reiniciarViagensNaoConcluidas` reseta a frota inteira; só é seguro porque toda viagem começa e termina na base (D46).

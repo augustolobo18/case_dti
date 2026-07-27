@@ -1,6 +1,6 @@
 # Timeline — case_dti (DroneDelivery)
 
-> Evolutionary history. 14 phases | Jul/2026.
+> Evolutionary history. 15 phases | Jul/2026.
 
 ## Phase 0: Inicialização (Jul/2026)
 
@@ -149,15 +149,24 @@
 - Segundo achado seguido vindo de executar o sistema, não de teste — o mesmo furo do bloco anterior.
 - Detalhes: `context/walkthroughs/2026-07-27_Walkthrough_Replanejamento_e_Cadastro.md`.
 
+## Phase 14: Frota na tela e README de entrega (Jul/2026)
+
+- Commits: 0eccc5f, 5bbf48e, branch `feat/dashboard-drones` (PR #15).
+- Tabela da frota: fase, posição, carga e bateria vieram do payload que o dashboard já buscava — nenhuma requisição nova.
+- Fase traduzida para linguagem de operação; estado fora do dicionário cai no valor cru, para estado novo aparecer em vez de mentir.
+- A coluna Posição tornou visível a dívida do snapshot: "Em voo" na base com bateria cheia entre a decolagem e o evento seguinte.
+- README tinha o núcleo inteiro desmarcado desde o bloco 4 — quem abrisse lia "não fez"; corrigido junto de arquitetura, documentação e qualidade.
+- Skills de IA do processo publicadas em repo próprio (`agent-context-skills`) e linkadas no README.
+
 ## Metrics Snapshot (2026-07-27)
 
 | Métrica            | Valor                          |
 | ------------------ | ------------------------------ |
 | Linguagem          | TypeScript (ESM)               |
 | Runtime            | Node.js 24 LTS (>= 20.12)      |
-| Fases              | ~14 (init + setup + planejamento + bloco 1 + ferramental + blocos 2-7 + saneamento + 2 correções do dashboard) |
+| Fases              | ~15 (init + setup + planejamento + bloco 1 + ferramental + blocos 2-7 + saneamento + 3 levas de dashboard) |
 | Backlog            | 8 épicos; E1-E7 concluídos; resta E8-2 (carga); ADRs em docs/DECISIONS.md |
 | API                | 5 rotas de pedido + 2 de drone + 3 de entrega + 3 de simulação + `/mapa` + `/dashboard` + `/health` |
 | Testes             | passing (~25 arquivos); cobertura total ~97,5%, domínio ~98% |
 | Verificação        | typecheck, lint, format, testes e build verdes no CI |
-| Git                | main com 13 PRs mergeados; `fix/relogio-e-cadastro` publicada no PR #14, aguardando merge |
+| Git                | main com 14 PRs mergeados; `feat/dashboard-drones` publicada no PR #15, aguardando merge |

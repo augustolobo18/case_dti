@@ -15,6 +15,7 @@ function novaViagem(overrides: Partial<Viagem> = {}): Viagem {
     ],
     distanciaQuadras: 2,
     cargaKg: 3,
+    status: 'planejada',
     ...overrides,
   };
 }

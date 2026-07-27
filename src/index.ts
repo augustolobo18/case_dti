@@ -5,6 +5,7 @@ import { criarPersistenciaArquivo as criarPersistenciaArquivoViagens } from './i
 import { criarRepositorioPedidos } from './repositorio/pedidos.js';
 import { criarRepositorioFrota } from './repositorio/frota.js';
 import { criarRepositorioViagens } from './repositorio/viagens.js';
+import { criarServicoSimulacao } from './servicos/simulacao.js';
 
 const persistenciaPedidos = criarPersistenciaArquivoPedidos(config.pedidosArquivo);
 const pedidos = criarRepositorioPedidos(persistenciaPedidos);
@@ -33,7 +34,23 @@ if (pedidoIdsOrfaos.length > 0) {
   );
 }
 
-const app = criarApp({ pedidos, frota, viagens });
+// Instancia o serviço de simulação com os tempos da config e recomputa a
+// linha do tempo já na subida (D31), para que o processo suba pronto —
+// depois da reconciliação de viagens órfãs acima.
+const simulacao = criarServicoSimulacao({
+  pedidos,
+  frota,
+  viagens,
+  base: config.base,
+  tempos: {
+    velocidadeQuadrasMin: config.droneVelocidadeQuadrasMin,
+    carregamentoMin: config.tempoCarregamentoMin,
+    entregaMin: config.tempoEntregaMin,
+    recargaMinPorQuadra: config.recargaMinPorQuadra,
+  },
+});
+
+const app = criarApp({ pedidos, frota, viagens, simulacao });
 
 app.listen(config.port, () => {
   console.log(`🚁 DroneDelivery rodando em http://localhost:${config.port}`);

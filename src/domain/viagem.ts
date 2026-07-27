@@ -3,6 +3,10 @@ import { distanciaManhattan, type Coordenada } from './coordenada.js';
 import { ErroDominio } from './erros.js';
 import type { Pedido } from './pedido.js';
 
+/** Status do ciclo de vida da viagem (D35/E4-1). */
+export const STATUS_VIAGEM = ['planejada', 'em_execucao', 'concluida'] as const;
+export type StatusViagem = (typeof STATUS_VIAGEM)[number];
+
 /** Viagem de um drone: rota fechada base → entregas → base, imutável. */
 export type Viagem = {
   readonly id: string;
@@ -11,6 +15,7 @@ export type Viagem = {
   readonly paradas: readonly Coordenada[];
   readonly distanciaQuadras: number;
   readonly cargaKg: number;
+  readonly status: StatusViagem;
 };
 
 /** Resultado do roteamento: a ordem das paradas e a distância total do percurso. */
@@ -135,7 +140,13 @@ export function criarViagem(opcoes: OpcoesViagem): Viagem {
     paradas,
     distanciaQuadras,
     cargaKg,
+    status: 'planejada',
   };
+}
+
+/** Devolve uma nova cópia da viagem com o status alterado, sem mutar o original (D35). */
+export function comStatusViagem(viagem: Viagem, status: StatusViagem): Viagem {
+  return { ...viagem, status };
 }
 
 /**

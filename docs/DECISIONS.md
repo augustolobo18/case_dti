@@ -330,3 +330,87 @@ Cada decisão registra o **contexto**, a **escolha** e o **porquê** (incluindo 
 - **Alternativas descartadas:** falhar a chamada inteira se houver um pedido inviável (perde
   a alocação parcial); menor peso primeiro no desempate (contraria a heurística FFD, tende a
   gerar mais viagens).
+
+## D30 — Relógio virtual com instante corrente, avançado por comando ✅
+
+- **Contexto:** o Bloco 5 (E4) precisa observar o avanço do tempo simulado sem depender de
+  `setTimeout`/relógio real (D13), e a API precisa expor esse avanço de alguma forma.
+- **Escolha:** um relógio virtual — um número, `instanteAtual` — mantido pelo serviço de
+  simulação e avançado explicitamente por `POST /simulacao/avancar`.
+- **Porquê:** é a forma canônica de simulação de eventos discretos (a linha do tempo já existe
+  inteira, pré-computada; avançar o relógio só aplica os eventos até o instante pedido) e é o
+  que permite `GET /drones` refletir de fato a máquina de estados em qualquer ponto da operação.
+- **Alternativas descartadas:** aplicar a linha do tempo inteira de uma vez (perderia o valor
+  didático/de acompanhamento do avanço parcial); relógio real com `sleep` (não determinístico,
+  viola D13).
+
+## D31 — Linha do tempo não é persistida; é recomputada no boot ✅
+
+- **Contexto:** a simulação (E4) produz uma linha do tempo de eventos a partir das viagens; é
+  preciso decidir se esse artefato é salvo em disco como pedidos (D6) e viagens (D26).
+- **Escolha:** não persistir a linha do tempo — ela é sempre recomputada a partir das viagens,
+  pedidos e frota atuais, tanto no boot quanto após cada `POST /entregas/alocar` (D33).
+- **Porquê:** a simulação é pura e determinística (`domain/simulacao.ts`, D13): dado o mesmo
+  estado de viagens/pedidos/frota, ela sempre produz a mesma linha do tempo — persisti-la
+  criaria um terceiro arquivo a reconciliar contra pedidos e viagens, repetindo o mesmo problema
+  que D24 evitou para a frota.
+- **Alternativas descartadas:** persistir a linha do tempo em `data/simulacao.json` (mais um
+  artefato para manter consistente com o resto do estado, sem ganho real, já que é derivável).
+
+## D32 — Avanço do relógio aplica os eventos, mudando o estado real ✅
+
+- **Contexto:** ao avançar o relógio, é preciso decidir se o efeito é só uma projeção somente
+  leitura (mostrar "como estaria" o sistema naquele instante) ou se muda o estado persistido.
+- **Escolha:** `POST /simulacao/avancar` aplica de fato os eventos até o instante pedido:
+  `pedido.status` e `viagem.status` são atualizados e persistidos (write-through, como já é
+  hoje), e o drone é atualizado no repositório de frota.
+- **Porquê:** uma projeção somente leitura deixaria `pedido.status` como uma ficção não
+  persistida — colidiria com o E1-2 (`GET /pedidos` já reporta `em_voo`/`entregue` hoje, mesmo
+  sem a simulação) e com o objetivo de o drone "de fato" mudar de estado (E4-1).
+- **Alternativas descartadas:** projeção somente leitura, com um endpoint separado para "aplicar
+  de verdade" (duplica a lógica de aplicação e a torna menos óbvia).
+
+## D33 — Alocar com simulação em andamento recomputa a linha do tempo e zera o relógio ✅
+
+- **Contexto:** `POST /entregas/alocar` pode ser chamado de novo enquanto a simulação anterior
+  ainda não terminou (ou já terminou); é preciso decidir o que acontece com a linha do tempo e o
+  relógio corrente.
+- **Escolha:** logo após alocar, o serviço recomputa a linha do tempo a partir das viagens ainda
+  **não concluídas** (D35) e zera o instante corrente para 0.
+- **Porquê:** coerente com D25 (a alocação já recalcula do zero as viagens `planejada`); zerar o
+  relógio mantém o instante inicial independente do histórico acumulado, e recomputar a partir
+  das não concluídas evita reexecutar uma viagem que já terminou.
+- **Alternativas descartadas:** manter o instante corrente e só anexar as novas viagens à linha
+  do tempo existente (mistura relógios de gerações diferentes de alocação, mais difícil de
+  raciocinar e de testar).
+
+## D34 — Recarga com duração proporcional à bateria consumida, entrando no makespan ✅
+
+- **Contexto:** o case pede recarga automática ao voltar à base (E4-3); falta decidir se ela é
+  instantânea ou consome tempo simulado.
+- **Escolha:** a recarga dura `distância consumida na viagem × recargaMinPorQuadra` minutos, e
+  esse tempo soma ao relógio do drone antes de ele voltar a `idle` — entra no makespan da
+  operação.
+- **Porquê:** recarga instantânea não afetaria métrica alguma e esvaziaria o E4-3 como
+  diferencial (bateria viraria só um contador decorativo); uma recarga proporcional ao consumo
+  é a forma mais simples de dar peso real à bateria no tempo total da operação.
+- **Alternativas descartadas:** recarga instantânea (mais simples, mas sem efeito observável);
+  recarga de duração fixa, independente do consumo (menos realista — um drone que voou pouco
+  recarregaria pelo mesmo tempo que um que voou o alcance inteiro).
+
+## D35 — Ciclo de vida da viagem: `planejada → em_execucao → concluida` ✅
+
+- **Contexto:** dívida do Bloco 4 — viagens acumulam indefinidamente no repositório e nenhuma
+  rota as descarta; a simulação (E4) também precisa saber quais viagens já terminaram, para não
+  as reexecutar numa nova alocação.
+- **Escolha:** a viagem ganha um campo `status` (`planejada → em_execucao → concluida`):
+  `decolagem` marca `em_execucao`, `recarga_concluida` marca `concluida`; `DELETE
+  /entregas/concluidas` remove do repositório as viagens já `concluida`.
+- **Porquê:** sem esse ciclo de vida, a simulação reexecutaria viagens já entregues a cada
+  recomputação (tentando despachar/entregar pedidos já `entregue`, lançando
+  `ENTREGA_NAO_PERMITIDA`), e o repositório de viagens cresceria sem limite. `data/viagens.json`
+  já existente (sem o campo) continua carregando pelo default `'planejada'` no schema.
+- **Alternativas descartadas:** apagar a viagem do repositório assim que concluída, automaticamente
+  (perde o histórico de operação, útil para métricas e para o dashboard, E6); só dois estados
+  (`planejada`/`concluida`, sem `em_execucao`) — perderia a distinção entre "ainda não decolou" e
+  "em voo", relevante para `GET /entregas/rota?status=`.

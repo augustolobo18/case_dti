@@ -2,6 +2,8 @@ import { ErroDominio } from '../domain/erros.js';
 import {
   alocarPedido,
   cancelarPedido,
+  despacharPedido,
+  entregarPedido,
   reverterParaPendente as reverterPedidoParaPendente,
   type Pedido,
   type Prioridade,
@@ -23,6 +25,8 @@ export type RepositorioPedidos = {
   cancelar(id: string): Pedido;
   marcarComoAlocados(ids: readonly string[]): Pedido[];
   reverterParaPendente(ids: readonly string[]): Pedido[];
+  despachar(ids: readonly string[]): Pedido[];
+  entregar(ids: readonly string[]): Pedido[];
 };
 
 /**
@@ -84,6 +88,14 @@ export function criarRepositorioPedidos(persistencia: PersistenciaPedidos): Repo
 
     reverterParaPendente(ids: readonly string[]): Pedido[] {
       return mutarEmLote(ids, reverterPedidoParaPendente);
+    },
+
+    despachar(ids: readonly string[]): Pedido[] {
+      return mutarEmLote(ids, despacharPedido);
+    },
+
+    entregar(ids: readonly string[]): Pedido[] {
+      return mutarEmLote(ids, entregarPedido);
     },
   };
 

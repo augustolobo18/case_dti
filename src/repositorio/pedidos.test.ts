@@ -181,4 +181,31 @@ describe('criarRepositorioPedidos', () => {
     expect(resultado.every((p) => p.status === 'pendente')).toBe(true);
     expect(repositorio.buscarPorId(a.id).status).toBe('pendente');
   });
+
+  it('despachar muda os pedidos alocados para em_voo em lote (E4-1)', () => {
+    const repositorio = criarRepositorioPedidos(criarPersistenciaMemoria());
+    const a = novoPedido();
+    const b = novoPedido();
+    repositorio.adicionar(a);
+    repositorio.adicionar(b);
+    repositorio.marcarComoAlocados([a.id, b.id]);
+
+    const resultado = repositorio.despachar([a.id, b.id]);
+
+    expect(resultado.every((p) => p.status === 'em_voo')).toBe(true);
+    expect(repositorio.buscarPorId(a.id).status).toBe('em_voo');
+  });
+
+  it('entregar muda os pedidos em_voo para entregue em lote (E4-1)', () => {
+    const repositorio = criarRepositorioPedidos(criarPersistenciaMemoria());
+    const a = novoPedido();
+    repositorio.adicionar(a);
+    repositorio.marcarComoAlocados([a.id]);
+    repositorio.despachar([a.id]);
+
+    const resultado = repositorio.entregar([a.id]);
+
+    expect(resultado.every((p) => p.status === 'entregue')).toBe(true);
+    expect(repositorio.buscarPorId(a.id).status).toBe('entregue');
+  });
 });

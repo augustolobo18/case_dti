@@ -45,10 +45,10 @@ capacidade, alcance e priorizando entregas conforme a prioridade.
 
 ### Diferenciais (avaliados por feature)
 
-- [ ] Máquina de estados do drone: `Idle → Carregando → Em voo → Entregando → Retornando → Idle`
-- [ ] Simulação de bateria (consumo por distância/tempo) e recarga na base
+- [x] Máquina de estados do drone: `idle → carregando → em_voo → entregando → retornando → idle`
+- [x] Simulação de bateria (consumo por distância) e recarga na base
 - [ ] Zonas de exclusão aérea (obstáculos entre pontos)
-- [ ] Cálculo de tempo total de entrega
+- [x] Cálculo de tempo total de entrega
 - [ ] Fila de entrega (prioridade + tempo de chegada)
 - [ ] Dashboard / relatório: entregas realizadas, tempo médio, drone mais eficiente, mapa
 - [ ] Feedback do cliente ("seu pacote está a N quadras")
@@ -142,17 +142,54 @@ mudar a quantidade exige reiniciar o servidor. Ids são sequenciais e determiní
 
 ### Implementados (E3 — Alocação & Otimização)
 
-| Método | Rota                | Descrição                                          | Corpo | Resposta                                    |
-| ------ | ------------------- | --------------------------------------------------- | ----- | -------------------------------------------- |
-| POST   | `/entregas/alocar`  | Aloca os pedidos `pendente` em viagens (greedy)      | —     | `201` com `{ viagens, naoAlocados }`         |
-| GET    | `/entregas/rota`    | Lista as viagens já calculadas                       | —     | `200` com array (vazio se nenhuma alocação)  |
+| Método | Rota                     | Descrição                                          | Corpo | Resposta                                    |
+| ------ | ------------------------ | --------------------------------------------------- | ----- | -------------------------------------------- |
+| POST   | `/entregas/alocar`       | Aloca os pedidos `pendente` em viagens (greedy)      | —     | `201` com `{ viagens, naoAlocados }`         |
+| GET    | `/entregas/rota`         | Lista as viagens já calculadas                       | —     | `200` com array (vazio se nenhuma alocação)  |
+| DELETE | `/entregas/concluidas`   | Remove as viagens já `concluida`                     | —     | `200` com `{ removidas }`                    |
 
 `POST /entregas/alocar` ordena os pedidos pendentes por prioridade → distância → peso (D11),
 empacota em viagens por heurística greedy respeitando capacidade e alcance (D9), roteia cada
 viagem por vizinho mais próximo (D12) e distribui entre os drones da frota em round-robin (D28).
 Pedidos alocados passam a `alocado`; pedido inviável (fora do alcance ou peso acima da
 capacidade) sai em `naoAlocados`, com `pedidoId`, `motivo` e `mensagem`, e continua `pendente`.
-As viagens são persistidas (D26) e sobrevivem a reinício.
+As viagens são persistidas (D26) e sobrevivem a reinício. Toda viagem nasce `planejada`
+(`status`) e, depois de alocar, a linha do tempo da simulação (E4) é recomputada automaticamente
+e o relógio volta a 0 (D13/D33). `GET /entregas/rota` aceita `?status=` (`planejada` \|
+`em_execucao` \| `concluida`); `DELETE /entregas/concluidas` limpa as viagens já entregues, para
+que uma nova alocação não acumule indefinidamente (fecha a dívida do bloco 4).
+
+### Implementados (E4 — Simulação & Estados)
+
+| Método | Rota                 | Descrição                                                  | Corpo                                    | Resposta                              |
+| ------ | -------------------- | ------------------------------------------------------------ | ----------------------------------------- | ---------------------------------------- |
+| GET    | `/simulacao`          | Instante corrente e métricas agregadas da simulação           | —                                          | `200` com `{ instanteAtual, metricas }`  |
+| POST   | `/simulacao/avancar`  | Avança o relógio da simulação, aplicando os eventos até lá     | `{ ateInstante }` ou `{ minutos }`         | `200` com `{ instanteAtual, eventosAplicados }` |
+| GET    | `/simulacao/eventos`  | Lista os eventos da linha do tempo, com recorte opcional       | —                                          | `200` com array (aceita `?desde=` e `?ate=`) |
+
+O drone segue a máquina de estados `idle → carregando → em_voo → entregando → retornando → idle`
+(E4-1); qualquer transição fora dessa tabela é um bug de domínio (`TRANSICAO_INVALIDA`). A
+simulação é orientada a eventos, em **tempo simulado** (D13): a cada `POST /entregas/alocar`, a
+linha do tempo inteira é recalculada de uma vez, de forma pura e determinística, e fica pronta
+para ser avançada por comando explícito — nada acontece sozinho com o tempo real.
+
+Cada evento tem um `instanteMin` (minutos desde o início da operação daquele drone) e carrega o
+estado do drone naquele momento: `carga_iniciada` → `decolagem` → `chegada_parada` (por parada) →
+`entrega_concluida` (por pedido) → `retorno_base` → `recarga_concluida`. O tempo de cada perna é
+`distância ÷ velocidade` (D14); carregamento e entrega somam tempos fixos configuráveis; drones
+diferentes voam em paralelo (cada um com seu próprio relógio começando em 0), e o mesmo drone
+executa suas viagens em série.
+
+A bateria é o mesmo recurso que o alcance (D15): decresce proporcionalmente à distância
+percorrida e é restaurada na recarga, ao voltar à base — a recarga dura `distância consumida ×
+recargaMinPorQuadra` minutos e entra no makespan da operação (D34).
+
+`POST /simulacao/avancar` aplica, em ordem, todo evento com `instanteMin` até o alvo informado:
+pedidos passam a `em_voo` na decolagem e a `entregue` na entrega; a viagem passa a `em_execucao`
+na decolagem e a `concluida` na recarga; o drone (posição, carga, bateria, estado) é atualizado a
+cada evento. O relógio só avança para frente — pedir um instante menor que o corrente é
+`AVANCO_INVALIDO` (422); avançar duas vezes para o mesmo instante não reaplica eventos já
+processados.
 
 ### Exemplos
 
@@ -261,6 +298,7 @@ curl -X POST http://localhost:3000/entregas/alocar
       ],
       "distanciaQuadras": 14,
       "cargaKg": 5,
+      "status": "planejada",
       "totalParadas": 3,
       "totalPedidos": 1
     }
@@ -288,10 +326,68 @@ curl http://localhost:3000/entregas/rota
     ],
     "distanciaQuadras": 14,
     "cargaKg": 5,
+    "status": "planejada",
     "totalParadas": 3,
     "totalPedidos": 1
   }
 ]
+```
+
+**Fluxo ponta a ponta da simulação (E4): cadastrar → alocar → avançar → consultar**
+
+```bash
+# 1. cadastrar um pedido
+curl -X POST http://localhost:3000/pedidos \
+  -H "Content-Type: application/json" \
+  -d '{"x": 3, "y": 4, "pesoKg": 5, "prioridade": "alta"}'
+
+# 2. alocar — gera a viagem "planejada" e já recomputa a linha do tempo (relógio em 0)
+curl -X POST http://localhost:3000/entregas/alocar
+
+# 3. consultar a simulação antes de avançar (métricas já calculadas, nada aplicado ainda)
+curl http://localhost:3000/simulacao
+```
+
+```json
+{
+  "instanteAtual": 0,
+  "metricas": {
+    "totalEntregas": 1,
+    "makespanMin": 28,
+    "tempoMedioEntregaMin": 14,
+    "tempoPorPedido": [{ "pedidoId": "cac58500-93f0-4213-ba12-d768ec785e5c", "instanteEntregaMin": 14 }],
+    "porDrone": [{ "droneId": "drone-1", "viagens": 1, "distanciaQuadras": 14, "tempoOcupadoMin": 28 }]
+  }
+}
+```
+
+```bash
+# 4. avançar o relógio até o fim da operação (makespanMin + folga)
+curl -X POST http://localhost:3000/simulacao/avancar \
+  -H "Content-Type: application/json" \
+  -d '{"ateInstante": 100}'
+
+# 5. conferir o efeito: pedido entregue, viagem concluída, drone de volta idle na base
+curl http://localhost:3000/pedidos
+curl http://localhost:3000/entregas/rota
+curl http://localhost:3000/drones
+```
+
+**Avanço com instante retroativo (422 padronizado):**
+
+```bash
+curl -X POST http://localhost:3000/simulacao/avancar \
+  -H "Content-Type: application/json" \
+  -d '{"ateInstante": 0}'
+```
+
+```json
+{
+  "erro": {
+    "codigo": "AVANCO_INVALIDO",
+    "mensagem": "Não é possível avançar para 0min: o relógio já está em 100min e só avança para frente."
+  }
+}
 ```
 
 ---

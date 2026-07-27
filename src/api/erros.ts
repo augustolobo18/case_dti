@@ -29,6 +29,11 @@ const MAPA_STATUS_HTTP: Record<CodigoErroDominio, number> = {
   VIAGEM_SEM_PEDIDOS: 422,
   FROTA_VAZIA: 422,
   ALOCACAO_NAO_PERMITIDA: 422,
+  TRANSICAO_INVALIDA: 422,
+  BATERIA_INSUFICIENTE: 422,
+  ENTREGA_NAO_PERMITIDA: 422,
+  AVANCO_INVALIDO: 422,
+  EMPACOTAMENTO_INCONSISTENTE: 500,
 };
 
 /** Devolve o status HTTP para o código de erro de domínio informado (default 500). */

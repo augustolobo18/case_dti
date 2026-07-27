@@ -19,7 +19,12 @@ export type CodigoErroDominio =
   | 'VIAGEM_ACIMA_ALCANCE'
   | 'VIAGEM_SEM_PEDIDOS'
   | 'FROTA_VAZIA'
-  | 'ALOCACAO_NAO_PERMITIDA';
+  | 'ALOCACAO_NAO_PERMITIDA'
+  | 'TRANSICAO_INVALIDA'
+  | 'BATERIA_INSUFICIENTE'
+  | 'ENTREGA_NAO_PERMITIDA'
+  | 'AVANCO_INVALIDO'
+  | 'EMPACOTAMENTO_INCONSISTENTE';
 
 /** Erro lançado quando uma regra do domínio é violada. */
 export class ErroDominio extends Error {

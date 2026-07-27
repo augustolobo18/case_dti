@@ -1,11 +1,13 @@
 import { randomUUID } from 'node:crypto';
-import { distanciaManhattan, type Coordenada } from './coordenada.js';
+import type { Coordenada } from './coordenada.js';
 import { ErroDominio } from './erros.js';
+import type { MapaCidade } from './mapa.js';
 import { PRIORIDADES, type Pedido } from './pedido.js';
 import { criarViagem, rotearNearestNeighbor, type Viagem } from './viagem.js';
 
 /** Motivo pelo qual um pedido não pôde ser alocado em viagem nenhuma. */
-export type MotivoNaoAlocado = 'INALCANCAVEL' | 'PESO_ACIMA_CAPACIDADE';
+export type MotivoNaoAlocado =
+  'INALCANCAVEL' | 'PESO_ACIMA_CAPACIDADE' | 'DESTINO_BLOQUEADO' | 'SEM_ROTA';
 
 /** Registro de um pedido inviável, com o motivo e uma mensagem amigável (dado do dashboard, E6). */
 export type PedidoNaoAlocado = {
@@ -27,6 +29,7 @@ export type OpcoesAlocacao = {
   readonly base: Coordenada;
   readonly capacidadeKg: number;
   readonly alcanceQuadras: number;
+  readonly mapa: MapaCidade;
   readonly gerarId?: () => string;
 };
 
@@ -36,11 +39,25 @@ function pesoPrioridade(prioridade: Pedido['prioridade']): number {
 }
 
 /**
+ * Distância da base ao destino do pedido, pelo mapa (E5-2/D17). `null` do mapa
+ * (sem rota) nunca deveria ocorrer aqui — a fila já passou por
+ * `separarInviaveis` — mas, se ocorrer, ordena por último em vez de quebrar a
+ * ordenação (contrato defensivo).
+ */
+function distanciaParaOrdenacao(mapa: MapaCidade, base: Coordenada, destino: Coordenada): number {
+  return mapa.distancia(base, destino) ?? Number.POSITIVE_INFINITY;
+}
+
+/**
  * Ordena os pedidos para alocação (D11/E3-2): prioridade (alta > media > baixa)
  * → distância da base (menor primeiro) → peso (maior primeiro). Comparador
  * total e determinístico; ordena sobre uma cópia, sem mutar a entrada.
  */
-export function ordenarParaAlocacao(pedidos: readonly Pedido[], base: Coordenada): Pedido[] {
+export function ordenarParaAlocacao(
+  pedidos: readonly Pedido[],
+  base: Coordenada,
+  mapa: MapaCidade,
+): Pedido[] {
   return [...pedidos].sort((a, b) => {
     const prioridadeDiferenca = pesoPrioridade(b.prioridade) - pesoPrioridade(a.prioridade);
     if (prioridadeDiferenca !== 0) {
@@ -48,7 +65,7 @@ export function ordenarParaAlocacao(pedidos: readonly Pedido[], base: Coordenada
     }
 
     const distanciaDiferenca =
-      distanciaManhattan(base, a.destino) - distanciaManhattan(base, b.destino);
+      distanciaParaOrdenacao(mapa, base, a.destino) - distanciaParaOrdenacao(mapa, base, b.destino);
     if (distanciaDiferenca !== 0) {
       return distanciaDiferenca;
     }
@@ -66,15 +83,18 @@ export function ordenarParaAlocacao(pedidos: readonly Pedido[], base: Coordenada
 
 /**
  * Separa os pedidos inviáveis (nunca cabem em viagem nenhuma) dos que seguem
- * para o empacotamento: destino cujo ida-e-volta excede o alcance sozinho
- * (`INALCANCAVEL`), ou peso acima da capacidade atual do drone
- * (`PESO_ACIMA_CAPACIDADE` — possível se a config mudou após o cadastro).
+ * para o empacotamento: peso acima da capacidade atual do drone
+ * (`PESO_ACIMA_CAPACIDADE` — possível se a config mudou após o cadastro),
+ * destino dentro de uma zona de exclusão (`DESTINO_BLOQUEADO`), destino sem
+ * caminho até a base contornando as zonas (`SEM_ROTA`, E5-2), ou destino cujo
+ * ida-e-volta excede o alcance sozinho (`INALCANCAVEL`).
  */
 function separarInviaveis(
   pedidos: readonly Pedido[],
   base: Coordenada,
   capacidadeKg: number,
   alcanceQuadras: number,
+  mapa: MapaCidade,
 ): { viaveis: Pedido[]; naoAlocados: PedidoNaoAlocado[] } {
   const viaveis: Pedido[] = [];
   const naoAlocados: PedidoNaoAlocado[] = [];
@@ -91,7 +111,30 @@ function separarInviaveis(
       continue;
     }
 
-    const idaEVolta = 2 * distanciaManhattan(base, pedido.destino);
+    if (mapa.bloqueada(pedido.destino)) {
+      naoAlocados.push({
+        pedidoId: pedido.id,
+        motivo: 'DESTINO_BLOQUEADO',
+        mensagem:
+          `Pedido ${pedido.id}: destino (${pedido.destino.x}, ${pedido.destino.y}) está ` +
+          'dentro de uma zona de exclusão aérea.',
+      });
+      continue;
+    }
+
+    const distanciaAteBase = mapa.distancia(base, pedido.destino);
+    if (distanciaAteBase === null) {
+      naoAlocados.push({
+        pedidoId: pedido.id,
+        motivo: 'SEM_ROTA',
+        mensagem:
+          `Pedido ${pedido.id}: não há rota até o destino (${pedido.destino.x}, ` +
+          `${pedido.destino.y}) contornando as zonas de exclusão.`,
+      });
+      continue;
+    }
+
+    const idaEVolta = 2 * distanciaAteBase;
     if (idaEVolta > alcanceQuadras) {
       naoAlocados.push({
         pedidoId: pedido.id,
@@ -122,6 +165,7 @@ function empacotar(
   base: Coordenada,
   capacidadeKg: number,
   alcanceQuadras: number,
+  mapa: MapaCidade,
 ): Pedido[][] {
   const restantes = [...fila];
   const viagens: Pedido[][] = [];
@@ -139,10 +183,11 @@ function empacotar(
         continue;
       }
 
-      const { distanciaQuadras } = rotearNearestNeighbor(base, [
-        ...grupo.map((p) => p.destino),
-        candidato.destino,
-      ]);
+      const { distanciaQuadras } = rotearNearestNeighbor(
+        base,
+        [...grupo.map((p) => p.destino), candidato.destino],
+        mapa,
+      );
 
       if (distanciaQuadras > alcanceQuadras) {
         indice += 1;
@@ -179,7 +224,15 @@ function empacotar(
  * é injetável, como em `criarPedido`/`criarDrone`.
  */
 export function alocarPedidos(opcoes: OpcoesAlocacao): ResultadoAlocacao {
-  const { pedidos, droneIds, base, capacidadeKg, alcanceQuadras, gerarId = randomUUID } = opcoes;
+  const {
+    pedidos,
+    droneIds,
+    base,
+    capacidadeKg,
+    alcanceQuadras,
+    mapa,
+    gerarId = randomUUID,
+  } = opcoes;
 
   const pendentes = pedidos.filter((pedido) => pedido.status === 'pendente');
 
@@ -187,7 +240,13 @@ export function alocarPedidos(opcoes: OpcoesAlocacao): ResultadoAlocacao {
     return { viagens: [], naoAlocados: [] };
   }
 
-  const { viaveis, naoAlocados } = separarInviaveis(pendentes, base, capacidadeKg, alcanceQuadras);
+  const { viaveis, naoAlocados } = separarInviaveis(
+    pendentes,
+    base,
+    capacidadeKg,
+    alcanceQuadras,
+    mapa,
+  );
 
   if (viaveis.length === 0) {
     return { viagens: [], naoAlocados };
@@ -200,8 +259,8 @@ export function alocarPedidos(opcoes: OpcoesAlocacao): ResultadoAlocacao {
     );
   }
 
-  const ordenados = ordenarParaAlocacao(viaveis, base);
-  const grupos = empacotar(ordenados, base, capacidadeKg, alcanceQuadras);
+  const ordenados = ordenarParaAlocacao(viaveis, base, mapa);
+  const grupos = empacotar(ordenados, base, capacidadeKg, alcanceQuadras, mapa);
 
   const viagens = grupos.map((grupo, indice) =>
     criarViagem({
@@ -210,6 +269,7 @@ export function alocarPedidos(opcoes: OpcoesAlocacao): ResultadoAlocacao {
       base,
       capacidadeKg,
       alcanceQuadras,
+      mapa,
       gerarId,
     }),
   );

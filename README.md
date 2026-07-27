@@ -47,7 +47,7 @@ capacidade, alcance e priorizando entregas conforme a prioridade.
 
 - [x] Máquina de estados do drone: `idle → carregando → em_voo → entregando → retornando → idle`
 - [x] Simulação de bateria (consumo por distância) e recarga na base
-- [ ] Zonas de exclusão aérea (obstáculos entre pontos)
+- [x] Zonas de exclusão aérea (obstáculos entre pontos)
 - [x] Cálculo de tempo total de entrega
 - [ ] Fila de entrega (prioridade + tempo de chegada)
 - [ ] Dashboard / relatório: entregas realizadas, tempo médio, drone mais eficiente, mapa
@@ -190,6 +190,72 @@ na decolagem e a `concluida` na recarga; o drone (posição, carga, bateria, est
 cada evento. O relógio só avança para frente — pedir um instante menor que o corrente é
 `AVANCO_INVALIDO` (422); avançar duas vezes para o mesmo instante não reaplica eventos já
 processados.
+
+### Implementados (E5 — Restrições Espaciais)
+
+A distância entre dois pontos da malha usa a métrica Manhattan `|dx| + |dy|` (E5-1/D16) — a
+mesma que alimenta alcance, roteamento e tempo desde o Bloco 1. Nenhuma parte do sistema fala em
+km: a unidade é sempre a **quadra**.
+
+Zonas de exclusão aérea (E5-2/D17) são células bloqueadas da malha, declaradas via `ZONAS_EXCLUSAO`
+no `.env` — retângulos inclusivos `"x1,y1:x2,y2"` separados por `;` (espaços tolerados; ver
+`.env.example`). O trajeto contorna as zonas por pathfinding em grade (BFS memoizado por origem,
+D36); a distância que desvia é a mesma usada nas checagens de alcance/bateria (D10/D15) e no
+cálculo de tempo (D14). Não há endpoint de API para ler ou editar zonas nesta fase — mudar exige
+reiniciar o servidor, como a frota (D8); zonas são derivadas da config, nunca persistidas (D37).
+
+Destino dentro de uma zona ou sem caminho até a base entra em `naoAlocados` — `DESTINO_BLOQUEADO`
+ou `SEM_ROTA`, respectivamente — sem abortar a rodada (D29/D38), com o mesmo formato de
+`INALCANCAVEL`/`PESO_ACIMA_CAPACIDADE`. Sem `ZONAS_EXCLUSAO` configurada, o comportamento é
+idêntico ao de antes do Bloco 6 — a distância volta a ser exatamente Manhattan.
+
+**Exemplo: alocar com uma zona configurada, gerando desvio e um destino bloqueado**
+
+```bash
+# .env: ZONAS_EXCLUSAO=3,0:3,6
+curl -X POST http://localhost:3000/pedidos \
+  -H "Content-Type: application/json" \
+  -d '{"x": 6, "y": 4, "pesoKg": 2, "prioridade": "alta"}'
+
+curl -X POST http://localhost:3000/pedidos \
+  -H "Content-Type: application/json" \
+  -d '{"x": 3, "y": 3, "pesoKg": 1, "prioridade": "baixa"}'
+
+curl -X POST http://localhost:3000/entregas/alocar
+```
+
+```json
+{
+  "viagens": [
+    {
+      "id": "b1e3c2b0-2e1a-4b1a-8b8a-8f8e8e8e8e8e",
+      "droneId": "drone-1",
+      "pedidoIds": ["5d3e2b1a-..."],
+      "paradas": [
+        { "x": 0, "y": 0 },
+        { "x": 6, "y": 4 },
+        { "x": 0, "y": 0 }
+      ],
+      "distanciaQuadras": 32,
+      "cargaKg": 2,
+      "status": "planejada",
+      "totalParadas": 3,
+      "totalPedidos": 1
+    }
+  ],
+  "naoAlocados": [
+    {
+      "pedidoId": "1a2b3c4d-...",
+      "motivo": "DESTINO_BLOQUEADO",
+      "mensagem": "Pedido 1a2b3c4d-...: destino (3, 3) está dentro de uma zona de exclusão aérea."
+    }
+  ]
+}
+```
+
+Sem a zona, a distância da viagem seria `2 × 10 = 20` quadras (Manhattan direto); com a parede em
+`x=3, y=0..6` (numa malha `0..10`), o desvio pela borda livre (`y=7` a `y=10`) eleva o total para
+`32` quadras.
 
 ### Exemplos
 

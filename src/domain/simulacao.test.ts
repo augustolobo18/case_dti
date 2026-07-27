@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import type { Coordenada } from './coordenada.js';
+import { distanciaManhattan, type Coordenada } from './coordenada.js';
 import { criarDrone, ESTADOS_DRONE, type Drone, type EstadoDrone } from './drone.js';
+import { ErroDominio } from './erros.js';
+import { criarMapaCidade, type MapaCidade, type ZonaExclusao } from './mapa.js';
 import { criarPedido, type LimitesPedido, type Pedido } from './pedido.js';
 import { criarViagem, comStatusViagem, type Viagem } from './viagem.js';
 import { alocarPedidos } from './alocacao.js';
@@ -14,6 +16,13 @@ const TEMPOS: TemposSimulacao = {
   entregaMin: 2,
   recargaMinPorQuadra: 0.5,
 };
+
+/** Mapa sem zonas de exclusão — distância se comporta como Manhattan pura. */
+const MAPA_SEM_ZONAS: MapaCidade = criarMapaCidade({ cidadeTamanho: 1000, zonas: [] });
+
+function mapaComZonas(zonas: ZonaExclusao[], cidadeTamanho = 1000): MapaCidade {
+  return criarMapaCidade({ cidadeTamanho, zonas });
+}
 
 let contadorPedido = 0;
 function novoPedido(
@@ -36,7 +45,7 @@ let contadorViagem = 0;
 function novaViagem(
   droneId: string,
   pedidos: Pedido[],
-  opcoes: { capacidadeKg?: number; alcanceQuadras?: number } = {},
+  opcoes: { capacidadeKg?: number; alcanceQuadras?: number; mapa?: MapaCidade } = {},
 ): Viagem {
   contadorViagem += 1;
   return criarViagem({
@@ -45,6 +54,7 @@ function novaViagem(
     base: BASE,
     capacidadeKg: opcoes.capacidadeKg ?? 100,
     alcanceQuadras: opcoes.alcanceQuadras ?? 100,
+    mapa: opcoes.mapa ?? MAPA_SEM_ZONAS,
     gerarId: () => `viagem-${contadorViagem}`,
   });
 }
@@ -65,6 +75,7 @@ describe('simular — sequência exata de eventos (D14)', () => {
       drones: [drone],
       base: BASE,
       tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
     });
 
     expect(resultado.eventos).toEqual([
@@ -169,6 +180,7 @@ describe('simular — ordem dos estados respeita a máquina de estados', () => {
       drones: [drone],
       base: BASE,
       tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
     });
 
     const estados = resultado.eventos
@@ -198,6 +210,7 @@ describe('simular — bateria', () => {
       drones: [drone],
       base: BASE,
       tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
     });
 
     const chegada = resultado.eventos.find((e) => e.tipo === 'chegada_parada')!;
@@ -218,6 +231,7 @@ describe('simular — bateria', () => {
       drones: [drone],
       base: BASE,
       tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
     });
 
     const retorno = resultado.eventos.find((e) => e.tipo === 'retorno_base')!;
@@ -242,6 +256,7 @@ describe('simular — série vs. paralelo entre drones', () => {
       drones: [drone],
       base: BASE,
       tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
     });
 
     const fimViagem1 = resultado.eventos.find(
@@ -268,6 +283,7 @@ describe('simular — série vs. paralelo entre drones', () => {
       drones: [drone1, drone2],
       base: BASE,
       tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
     });
 
     const carga1 = resultado.eventos.find(
@@ -294,6 +310,7 @@ describe('simular — múltiplos pedidos no mesmo destino', () => {
       drones: [drone],
       base: BASE,
       tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
     });
 
     const entregas = resultado.eventos.filter((e) => e.tipo === 'entrega_concluida');
@@ -319,6 +336,7 @@ describe('simular — métricas', () => {
       drones: [drone1, drone2],
       base: BASE,
       tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
     });
 
     const maiorInstante = Math.max(...resultado.eventos.map((e) => e.instanteMin));
@@ -345,6 +363,7 @@ describe('simular — determinismo', () => {
       drones: [novoDrone('drone-1'), novoDrone('drone-2')],
       base: BASE,
       tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
     };
   }
 
@@ -391,6 +410,7 @@ describe('simular — determinismo', () => {
       base: BASE,
       capacidadeKg: 10,
       alcanceQuadras: 200,
+      mapa: MAPA_SEM_ZONAS,
       gerarId: () => `viagem-carga-${(contadorAlocacao += 1)}`,
     });
 
@@ -401,6 +421,7 @@ describe('simular — determinismo', () => {
         drones,
         base: BASE,
         tempos: TEMPOS,
+        mapa: MAPA_SEM_ZONAS,
       });
     }
 
@@ -432,6 +453,7 @@ describe('simular — viagem já concluída é ignorada', () => {
       drones: [drone],
       base: BASE,
       tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
     });
 
     expect(resultado.eventos).toEqual([]);
@@ -442,5 +464,189 @@ describe('simular — viagem já concluída é ignorada', () => {
       tempoPorPedido: [],
       porDrone: [],
     });
+  });
+});
+
+describe('simular — com zonas de exclusão (E5-2/D17)', () => {
+  // Parede vertical em x=3, y=0..6, deixando y=7..8 livres para contornar,
+  // numa malha 0..8. Obriga o desvio entre ORIGEM e DESTINO.
+  const ZONA: ZonaExclusao = { de: { x: 3, y: 0 }, ate: { x: 3, y: 6 } };
+  const CIDADE_TAMANHO_ZONA = 8;
+  const MAPA_ZONA = mapaComZonas([ZONA], CIDADE_TAMANHO_ZONA);
+  const ORIGEM: Coordenada = { x: 0, y: 4 };
+  const DESTINO: Coordenada = { x: 6, y: 4 };
+
+  it('perna que contorna a zona consome mais bateria e mais tempo que o equivalente Manhattan', () => {
+    const pedidoSemZona = novoPedido({ x: DESTINO.x, y: DESTINO.y, pesoKg: 1 });
+    const viagemSemZona = criarViagem({
+      droneId: 'drone-1',
+      pedidos: [pedidoSemZona],
+      base: ORIGEM,
+      capacidadeKg: 10,
+      alcanceQuadras: 100,
+      mapa: MAPA_SEM_ZONAS,
+      gerarId: () => 'viagem-sem-zona',
+    });
+    const droneSemZona = criarDrone({
+      base: ORIGEM,
+      capacidadeKg: 10,
+      alcanceQuadras: 100,
+      gerarId: () => 'drone-1',
+    });
+
+    const resultadoSemZona = simular({
+      viagens: [viagemSemZona],
+      pedidos: [pedidoSemZona],
+      drones: [droneSemZona],
+      base: ORIGEM,
+      tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
+    });
+
+    const pedidoComZona = novoPedido({ x: DESTINO.x, y: DESTINO.y, pesoKg: 1 });
+    const viagemComZona = criarViagem({
+      droneId: 'drone-2',
+      pedidos: [pedidoComZona],
+      base: ORIGEM,
+      capacidadeKg: 10,
+      alcanceQuadras: 100,
+      mapa: MAPA_ZONA,
+      gerarId: () => 'viagem-com-zona',
+    });
+    const droneComZona = criarDrone({
+      base: ORIGEM,
+      capacidadeKg: 10,
+      alcanceQuadras: 100,
+      gerarId: () => 'drone-2',
+    });
+
+    const resultadoComZona = simular({
+      viagens: [viagemComZona],
+      pedidos: [pedidoComZona],
+      drones: [droneComZona],
+      base: ORIGEM,
+      tempos: TEMPOS,
+      mapa: MAPA_ZONA,
+    });
+
+    const chegadaSemZona = resultadoSemZona.eventos.find((e) => e.tipo === 'chegada_parada')!;
+    const chegadaComZona = resultadoComZona.eventos.find((e) => e.tipo === 'chegada_parada')!;
+    const bateriaConsumidaSemZona = 100 - chegadaSemZona.bateriaQuadras;
+    const bateriaConsumidaComZona = 100 - chegadaComZona.bateriaQuadras;
+
+    expect(bateriaConsumidaComZona).toBeGreaterThan(bateriaConsumidaSemZona);
+    expect(chegadaComZona.instanteMin).toBeGreaterThan(chegadaSemZona.instanteMin);
+    expect(resultadoComZona.metricas.makespanMin).toBeGreaterThan(
+      resultadoSemZona.metricas.makespanMin,
+    );
+  });
+
+  it('a distância total do drone deriva das pernas percorridas, não do campo persistido na viagem', () => {
+    const pedido = novoPedido({ x: DESTINO.x, y: DESTINO.y, pesoKg: 1 });
+    const viagemReal = criarViagem({
+      droneId: 'drone-1',
+      pedidos: [pedido],
+      base: ORIGEM,
+      capacidadeKg: 10,
+      alcanceQuadras: 100,
+      mapa: MAPA_ZONA,
+      gerarId: () => 'viagem-legado',
+    });
+    // Simula uma viagem persistida antes das zonas: paradas corretas, mas
+    // "congelada" com a distância Manhattan antiga (sem o desvio real).
+    const distanciaManhattanRedondaAntiga = 2 * distanciaManhattan(ORIGEM, DESTINO);
+    const viagemComCampoDesatualizado: Viagem = {
+      ...viagemReal,
+      distanciaQuadras: distanciaManhattanRedondaAntiga,
+    };
+    const drone = criarDrone({
+      base: ORIGEM,
+      capacidadeKg: 10,
+      alcanceQuadras: 100,
+      gerarId: () => 'drone-1',
+    });
+
+    const resultado = simular({
+      viagens: [viagemComCampoDesatualizado],
+      pedidos: [pedido],
+      drones: [drone],
+      base: ORIGEM,
+      tempos: TEMPOS,
+      mapa: MAPA_ZONA,
+    });
+
+    expect(viagemComCampoDesatualizado.distanciaQuadras).not.toBe(viagemReal.distanciaQuadras);
+    expect(resultado.metricas.porDrone[0]?.distanciaQuadras).toBe(viagemReal.distanciaQuadras);
+    expect(resultado.metricas.porDrone[0]?.distanciaQuadras).not.toBe(
+      viagemComCampoDesatualizado.distanciaQuadras,
+    );
+  });
+
+  it('bateria insuficiente por causa do desvio falha com BATERIA_INSUFICIENTE', () => {
+    expect.assertions(2);
+    const pedido = novoPedido({ x: DESTINO.x, y: DESTINO.y, pesoKg: 1 });
+    const viagem = criarViagem({
+      droneId: 'drone-1',
+      pedidos: [pedido],
+      base: ORIGEM,
+      capacidadeKg: 10,
+      alcanceQuadras: 100,
+      mapa: MAPA_ZONA,
+      gerarId: () => 'viagem-bateria',
+    });
+    // Bateria cobre a distância Manhattan direta (6), mas não o desvio real (12).
+    const bateriaLimitada = distanciaManhattan(ORIGEM, DESTINO) + 1;
+    const drone = criarDrone({
+      base: ORIGEM,
+      capacidadeKg: 10,
+      alcanceQuadras: bateriaLimitada,
+      gerarId: () => 'drone-1',
+    });
+
+    try {
+      simular({
+        viagens: [viagem],
+        pedidos: [pedido],
+        drones: [drone],
+        base: ORIGEM,
+        tempos: TEMPOS,
+        mapa: MAPA_ZONA,
+      });
+    } catch (erro) {
+      expect(erro).toBeInstanceOf(ErroDominio);
+      expect((erro as ErroDominio).codigo).toBe('BATERIA_INSUFICIENTE');
+    }
+  });
+
+  it('determinismo é preservado com zonas: duas execuções produzem linhas do tempo idênticas', () => {
+    const pedido = novoPedido({ x: DESTINO.x, y: DESTINO.y, pesoKg: 1 });
+    const viagem = criarViagem({
+      droneId: 'drone-1',
+      pedidos: [pedido],
+      base: ORIGEM,
+      capacidadeKg: 10,
+      alcanceQuadras: 100,
+      mapa: MAPA_ZONA,
+      gerarId: () => 'viagem-determinismo-zona',
+    });
+    const drone = criarDrone({
+      base: ORIGEM,
+      capacidadeKg: 10,
+      alcanceQuadras: 100,
+      gerarId: () => 'drone-1',
+    });
+    const opcoes = {
+      viagens: [viagem],
+      pedidos: [pedido],
+      drones: [drone],
+      base: ORIGEM,
+      tempos: TEMPOS,
+      mapa: MAPA_ZONA,
+    };
+
+    const resultado1 = simular(opcoes);
+    const resultado2 = simular(opcoes);
+
+    expect(resultado1).toEqual(resultado2);
   });
 });

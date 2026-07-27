@@ -1,5 +1,6 @@
 import { ErroDominio } from '../domain/erros.js';
 import type { Coordenada } from '../domain/coordenada.js';
+import type { MapaCidade } from '../domain/mapa.js';
 import {
   simular,
   type EventoSimulacao,
@@ -11,13 +12,14 @@ import type { RepositorioPedidos } from '../repositorio/pedidos.js';
 import type { RepositorioFrota } from '../repositorio/frota.js';
 import type { RepositorioViagens } from '../repositorio/viagens.js';
 
-/** Opções de criação do serviço de simulação: repositórios, base e tempos operacionais. */
+/** Opções de criação do serviço de simulação: repositórios, base, mapa e tempos operacionais. */
 export type OpcoesServicoSimulacao = {
   readonly pedidos: RepositorioPedidos;
   readonly frota: RepositorioFrota;
   readonly viagens: RepositorioViagens;
   readonly base: Coordenada;
   readonly tempos: TemposSimulacao;
+  readonly mapa: MapaCidade;
 };
 
 /** Resultado de um avanço do relógio: o instante alcançado e os eventos recém-aplicados. */
@@ -45,7 +47,7 @@ export type ServicoSimulacao = {
  * ou entrega o pedido e atualiza o status da viagem.
  */
 export function criarServicoSimulacao(opcoes: OpcoesServicoSimulacao): ServicoSimulacao {
-  const { pedidos, frota, viagens, base, tempos } = opcoes;
+  const { pedidos, frota, viagens, base, tempos, mapa } = opcoes;
 
   let linha: LinhaDoTempo = {
     eventos: [],
@@ -67,6 +69,7 @@ export function criarServicoSimulacao(opcoes: OpcoesServicoSimulacao): ServicoSi
       drones: frota.listar(),
       base,
       tempos,
+      mapa,
     });
     instante = 0;
     indiceProximoEvento = 0;

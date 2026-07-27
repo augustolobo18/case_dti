@@ -1,11 +1,28 @@
 import { criarApp } from './api/server.js';
 import { config } from './config.js';
+import { ErroDominio } from './domain/erros.js';
+import { criarMapaCidade } from './domain/mapa.js';
 import { criarPersistenciaArquivo as criarPersistenciaArquivoPedidos } from './infra/persistencia-pedidos.js';
 import { criarPersistenciaArquivo as criarPersistenciaArquivoViagens } from './infra/persistencia-viagens.js';
 import { criarRepositorioPedidos } from './repositorio/pedidos.js';
 import { criarRepositorioFrota } from './repositorio/frota.js';
 import { criarRepositorioViagens } from './repositorio/viagens.js';
 import { criarServicoSimulacao } from './servicos/simulacao.js';
+
+// Mapa da cidade (E5-2/D17): zonas de exclusão vêm da config, derivadas e não
+// persistidas (mesmo raciocínio da frota, D24). Falha alto no boot se a base
+// nascer bloqueada — nenhuma viagem conseguiria sequer decolar.
+const mapa = criarMapaCidade({
+  cidadeTamanho: config.cidadeTamanho,
+  zonas: config.zonasExclusao,
+});
+if (mapa.bloqueada(config.base)) {
+  throw new ErroDominio(
+    'COORDENADA_FORA_DA_MALHA',
+    `Configuração incoerente: a base (${config.base.x}, ${config.base.y}) está dentro de ` +
+      'uma zona de exclusão aérea.',
+  );
+}
 
 const persistenciaPedidos = criarPersistenciaArquivoPedidos(config.pedidosArquivo);
 const pedidos = criarRepositorioPedidos(persistenciaPedidos);
@@ -48,9 +65,10 @@ const simulacao = criarServicoSimulacao({
     entregaMin: config.tempoEntregaMin,
     recargaMinPorQuadra: config.recargaMinPorQuadra,
   },
+  mapa,
 });
 
-const app = criarApp({ pedidos, frota, viagens, simulacao });
+const app = criarApp({ pedidos, frota, viagens, simulacao, mapa });
 
 app.listen(config.port, () => {
   console.log(`🚁 DroneDelivery rodando em http://localhost:${config.port}`);

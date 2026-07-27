@@ -8,6 +8,7 @@ import type { RepositorioPedidos } from '../repositorio/pedidos.js';
 import type { RepositorioFrota } from '../repositorio/frota.js';
 import type { RepositorioViagens } from '../repositorio/viagens.js';
 import type { ServicoSimulacao } from '../servicos/simulacao.js';
+import type { MapaCidade } from '../domain/mapa.js';
 
 /**
  * Repositórios e serviços injetados na aplicação. Um objeto — em vez de
@@ -19,6 +20,7 @@ export type Dependencias = {
   readonly frota: RepositorioFrota;
   readonly viagens: RepositorioViagens;
   readonly simulacao: ServicoSimulacao;
+  readonly mapa: MapaCidade;
 };
 
 /**
@@ -44,6 +46,7 @@ export function criarApp(dependencias: Dependencias): Express {
       frota: dependencias.frota,
       viagens: dependencias.viagens,
       simulacao: dependencias.simulacao,
+      mapa: dependencias.mapa,
     }),
   );
   app.use('/simulacao', criarRotasSimulacao(dependencias.simulacao));

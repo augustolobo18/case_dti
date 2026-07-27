@@ -1,4 +1,4 @@
-import { distanciaManhattan, saoIguais, type Coordenada } from './coordenada.js';
+import { saoIguais, type Coordenada } from './coordenada.js';
 import {
   carregarDrone,
   descarregar,
@@ -8,6 +8,8 @@ import {
   type Drone,
   type EstadoDrone,
 } from './drone.js';
+import { ErroDominio } from './erros.js';
+import type { MapaCidade } from './mapa.js';
 import type { Pedido } from './pedido.js';
 import type { Viagem } from './viagem.js';
 
@@ -71,13 +73,14 @@ export type TemposSimulacao = {
   readonly recargaMinPorQuadra: number;
 };
 
-/** Opções de `simular`: viagens, pedidos, frota, base e os tempos operacionais. */
+/** Opções de `simular`: viagens, pedidos, frota, base, mapa e os tempos operacionais. */
 export type OpcoesSimulacao = {
   readonly viagens: readonly Viagem[];
   readonly pedidos: readonly Pedido[];
   readonly drones: readonly Drone[];
   readonly base: Coordenada;
   readonly tempos: TemposSimulacao;
+  readonly mapa: MapaCidade;
 };
 
 /** Arredonda para 3 casas decimais — ponto único de arredondamento (mitiga deriva de ponto flutuante). */
@@ -118,6 +121,19 @@ function compararEventos(a: EventoSimulacao, b: EventoSimulacao): number {
   return a.sequencia - b.sequencia;
 }
 
+/** Distância entre `a` e `b` pelo mapa; falha alto se não houver rota (estado inalcançável). */
+function distanciaOuFalhar(mapa: MapaCidade, a: Coordenada, b: Coordenada): number {
+  const distancia = mapa.distancia(a, b);
+  if (distancia === null) {
+    throw new ErroDominio(
+      'ROTA_IMPOSSIVEL',
+      `Não há rota entre (${a.x}, ${a.y}) e (${b.x}, ${b.y}) contornando as zonas de ` +
+        'exclusão — estado inalcançável ao simular uma viagem já planejada.',
+    );
+  }
+  return distancia;
+}
+
 /**
  * Simula a execução das viagens `planejada`/`em_execucao` (viagens
  * `concluida` são ignoradas), transformando-as em uma linha do tempo de
@@ -131,7 +147,7 @@ function compararEventos(a: EventoSimulacao, b: EventoSimulacao): number {
  * máquina de estados e a bateria sigam a mesma regra em toda a base de código.
  */
 export function simular(opcoes: OpcoesSimulacao): LinhaDoTempo {
-  const { viagens, pedidos, drones, base, tempos } = opcoes;
+  const { viagens, pedidos, drones, base, tempos, mapa } = opcoes;
 
   const pedidosPorId = new Map(pedidos.map((pedido) => [pedido.id, pedido]));
   const dronesPorId = new Map(drones.map((drone) => [drone.id, drone]));
@@ -190,8 +206,6 @@ export function simular(opcoes: OpcoesSimulacao): LinhaDoTempo {
     };
 
     for (const viagem of viagensDoDrone) {
-      distanciaTotal += viagem.distanciaQuadras;
-
       droneEstado = carregarDrone(droneEstado, viagem.cargaKg);
       instanteAtual = arredondar(instanteAtual + tempos.carregamentoMin);
       registrar('carga_iniciada', viagem.id);
@@ -206,7 +220,8 @@ export function simular(opcoes: OpcoesSimulacao): LinhaDoTempo {
       const entregues = new Set<string>();
 
       paradas.forEach((parada, indice) => {
-        const distanciaPerna = distanciaManhattan(droneEstado.posicao, parada);
+        const distanciaPerna = distanciaOuFalhar(mapa, droneEstado.posicao, parada);
+        distanciaTotal += distanciaPerna;
         instanteAtual = arredondar(instanteAtual + distanciaPerna / tempos.velocidadeQuadrasMin);
         droneEstado = moverPara(droneEstado, parada, distanciaPerna);
         droneEstado = transitar(droneEstado, 'entregando');
@@ -228,7 +243,8 @@ export function simular(opcoes: OpcoesSimulacao): LinhaDoTempo {
         droneEstado = transitar(droneEstado, ehUltimaParada ? 'retornando' : 'em_voo');
       });
 
-      const distanciaVolta = distanciaManhattan(droneEstado.posicao, base);
+      const distanciaVolta = distanciaOuFalhar(mapa, droneEstado.posicao, base);
+      distanciaTotal += distanciaVolta;
       instanteAtual = arredondar(instanteAtual + distanciaVolta / tempos.velocidadeQuadrasMin);
       droneEstado = moverPara(droneEstado, base, distanciaVolta);
       registrar('retorno_base', viagem.id);

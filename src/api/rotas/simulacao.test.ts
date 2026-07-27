@@ -5,6 +5,7 @@ import { criarApp } from '../server.js';
 import type { CorpoErro } from '../erros.js';
 import { criarPedido, type LimitesPedido } from '../../domain/pedido.js';
 import type { TemposSimulacao } from '../../domain/simulacao.js';
+import { criarMapaCidade } from '../../domain/mapa.js';
 import { criarPersistenciaMemoria as criarPersistenciaMemoriaPedidos } from '../../infra/persistencia-pedidos.js';
 import { criarPersistenciaMemoria as criarPersistenciaMemoriaViagens } from '../../infra/persistencia-viagens.js';
 import { criarRepositorioPedidos, type RepositorioPedidos } from '../../repositorio/pedidos.js';
@@ -81,14 +82,16 @@ beforeEach(() => {
     persistencia: criarPersistenciaMemoriaViagens(),
     droneIds: frota.listar().map((d) => d.id),
   });
+  const mapa = criarMapaCidade({ cidadeTamanho: LIMITES.cidadeTamanho, zonas: [] });
   simulacao = criarServicoSimulacao({
     pedidos,
     frota,
     viagens,
     base: OPCOES_FROTA.base,
     tempos: TEMPOS,
+    mapa,
   });
-  app = criarApp({ pedidos, frota, viagens, simulacao });
+  app = criarApp({ pedidos, frota, viagens, simulacao, mapa });
 });
 
 describe('GET /simulacao', () => {

@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { distanciaManhattan, type Coordenada } from './coordenada.js';
+import type { Coordenada } from './coordenada.js';
 import { ErroDominio } from './erros.js';
+import type { MapaCidade } from './mapa.js';
 import type { Pedido } from './pedido.js';
 
 /** Status do ciclo de vida da viagem (D35/E4-1). */
@@ -31,6 +32,7 @@ export type OpcoesViagem = {
   readonly base: Coordenada;
   readonly capacidadeKg: number;
   readonly alcanceQuadras: number;
+  readonly mapa: MapaCidade;
   readonly gerarId?: () => string;
 };
 
@@ -51,14 +53,31 @@ function compararPorXY(a: Coordenada, b: Coordenada): number {
   return a.y - b.y;
 }
 
+/** Distância entre `a` e `b` pelo mapa; falha alto se não houver rota (estado inalcançável). */
+function distanciaOuFalhar(mapa: MapaCidade, a: Coordenada, b: Coordenada): number {
+  const distancia = mapa.distancia(a, b);
+  if (distancia === null) {
+    throw new ErroDominio(
+      'ROTA_IMPOSSIVEL',
+      `Não há rota entre (${a.x}, ${a.y}) e (${b.x}, ${b.y}) contornando as zonas de ` +
+        'exclusão — estado inalcançável após a filtragem de inviáveis.',
+    );
+  }
+  return distancia;
+}
+
 /**
  * Roteia os destinos por vizinho mais próximo (nearest-neighbor, D12), partindo
  * e retornando à `base`. Puro: não muta a entrada. Empate de distância resolve
- * por menor `x`, depois menor `y`, para manter o resultado determinístico.
+ * por menor `x`, depois menor `y`, para manter o resultado determinístico. A
+ * distância de cada perna vem do `mapa` (E5-2/D17) — sem zonas, é exatamente
+ * Manhattan. Perna sem rota lança `ROTA_IMPOSSIVEL`: depois de `separarInviaveis`
+ * (Fase 3), isso é sempre um bug do algoritmo, nunca uma entrada válida.
  */
 export function rotearNearestNeighbor(
   base: Coordenada,
   destinos: readonly Coordenada[],
+  mapa: MapaCidade,
 ): ResultadoRoteamento {
   const pendentes = [...destinos];
   const paradas: Coordenada[] = [base];
@@ -71,11 +90,11 @@ export function rotearNearestNeighbor(
 
   while (pendentes.length > 0) {
     let indiceMaisProximo = 0;
-    let menorDistancia = distanciaManhattan(atual, pendentes[0]!);
+    let menorDistancia = distanciaOuFalhar(mapa, atual, pendentes[0]!);
 
     for (let indice = 1; indice < pendentes.length; indice += 1) {
       const candidato = pendentes[indice]!;
-      const distancia = distanciaManhattan(atual, candidato);
+      const distancia = distanciaOuFalhar(mapa, atual, candidato);
       const maisProximoAtual = pendentes[indiceMaisProximo]!;
 
       if (
@@ -93,7 +112,7 @@ export function rotearNearestNeighbor(
     atual = proximo!;
   }
 
-  distanciaQuadras += distanciaManhattan(atual, base);
+  distanciaQuadras += distanciaOuFalhar(mapa, atual, base);
   paradas.push(base);
 
   return { paradas, distanciaQuadras };
@@ -106,7 +125,15 @@ export function rotearNearestNeighbor(
  * para que um bug no greedy falhe alto em vez de gravar uma viagem inválida.
  */
 export function criarViagem(opcoes: OpcoesViagem): Viagem {
-  const { droneId, pedidos, base, capacidadeKg, alcanceQuadras, gerarId = randomUUID } = opcoes;
+  const {
+    droneId,
+    pedidos,
+    base,
+    capacidadeKg,
+    alcanceQuadras,
+    mapa,
+    gerarId = randomUUID,
+  } = opcoes;
 
   if (pedidos.length === 0) {
     throw new ErroDominio('VIAGEM_SEM_PEDIDOS', 'Viagem não pode ser criada sem nenhum pedido.');
@@ -123,6 +150,7 @@ export function criarViagem(opcoes: OpcoesViagem): Viagem {
   const { paradas, distanciaQuadras } = rotearNearestNeighbor(
     base,
     pedidos.map((pedido) => pedido.destino),
+    mapa,
   );
 
   if (distanciaQuadras > alcanceQuadras) {

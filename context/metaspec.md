@@ -1,6 +1,6 @@
 # MetaSpec — case_dti (DroneDelivery)
 
-> Context for AI agents. Version: 1.2 | Updated: 2026-07-26
+> Context for AI agents. Version: 1.3 | Updated: 2026-07-27
 
 ## IDENTITY
 
@@ -27,7 +27,7 @@ dashboard   visualização simples (web ou ASCII)
 
 ## ARCHITECTURE
 
-Fluxo alvo (E1–E4 implementados; zonas de exclusão e dashboard pendentes):
+Fluxo alvo (E1–E5 implementados; dashboard pendente):
 
 ```
 POST /pedidos ──> Zod (forma) ──> Domínio (regra) ──> Repositório ──> JSON
@@ -37,7 +37,8 @@ POST /entregas/alocar ───────────────────�
                                        v
                               Algoritmo de Alocação
                         (heurística greedy: capacidade + alcance,
-                         ordenado por prioridade > distância > peso)
+                         ordenado por prioridade > distância > peso;
+                         distância vem do MapaCidade, contornando zonas)
                                        │
                                        v
                      Viagens ──> JSON ──> Motor de Simulação (puro)
@@ -59,6 +60,7 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 | ----------- | ------------------ | ---------------------------------------------------- |
 | Config      | `src/config.ts`    | Constantes: capacidade, alcance, malha, frota, base, porta, arquivo de pedidos (env) |
 | Domínio     | `src/domain/`      | `Coordenada` + distância, `Pedido`, `Drone`/frota, `ErroDominio` |
+| Mapa        | `src/domain/`      | `MapaCidade`: zonas de exclusão e distância por BFS memoizado por origem, puro |
 | Alocação    | `src/domain/`      | `Viagem` + roteamento nearest-neighbor; ordenação e empacotamento greedy, puros |
 | Simulação   | `src/domain/`      | Máquina de estados do drone e motor que transforma viagens em eventos com timestamps, puros |
 | Persistência| `src/infra/`       | Portas `carregar`/`salvar` de pedidos e viagens, implementações de arquivo JSON e de memória, schemas e erro próprios |
@@ -68,9 +70,9 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 | Entry       | `src/index.ts`     | Compõe persistências → repositórios → serviço → app, reconcilia viagens órfãs e sobe o HTTP |
 | Dashboard   | `src/dashboard/`   | Relatório/visualização de métricas e mapa (vazio)    |
 
-## CURRENT STATE (v1.2 — 26/07/2026)
+## CURRENT STATE (v1.3 — 27/07/2026)
 
-- Branch `feat/bloco-5` (blocos 1-4 na `main`, PRs #2 a #7); implementação sem commit. Próximo: bloco 6 (zonas de exclusão, E5-2).
+- Branch `feat/bloco-6` (blocos 1-5 na `main`, PRs #2 a #8); implementação sem commit. Próximo: bloco 7 (dashboard e feedback, E6).
 - Ready:
   - Domínio base: `Coordenada` + distância Manhattan, `Pedido` e `Drone`/frota, com `ErroDominio` tipado.
   - Tipos imutáveis e funções puras; limites entram por parâmetro e `gerarId` é injetável (testes determinísticos).
@@ -78,6 +80,8 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
   - Épico E2 completo: frota criada da config no boot e consultável por `GET /drones` e `GET /drones/:id`.
   - Épico E3 completo: alocação greedy e roteamento nearest-neighbor em `POST /entregas/alocar` e `GET /entregas/rota`.
   - Épico E4 completo: máquina de estados, linha do tempo de eventos, métricas de tempo e bateria consumível.
+  - Épico E5 completo: zonas de exclusão da config e distância que as contorna alimentando alcance, bateria, roteamento e tempo.
+  - Sem zonas configuradas, a distância volta a ser exatamente Manhattan por atalho no código — não só por teste de regressão.
   - `alocarPedidos` e `simular` são puras e determinísticas — sem I/O, relógio ou aleatoriedade.
   - Relógio virtual: `POST /simulacao/avancar` aplica os eventos vencidos; `GET /drones` e `GET /pedidos` refletem o estado.
   - Ciclo de vida da viagem (`planejada → em_execucao → concluida`) com filtro e `DELETE /entregas/concluidas`.
@@ -85,11 +89,15 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
   - Viagem cujo drone sumiu da frota é descartada no boot e seus pedidos voltam a `pendente` (D27).
   - Arquivos de pedidos e viagens validados por schema ao carregar; corrompidos, o boot falha sem tocá-los.
   - Erros padronizados `{ erro: { codigo, mensagem, detalhes? } }` por middleware central (E7-1).
-  - Testes verdes em domínio, serviços, persistência, repositórios e endpoints; cobertura total ~98%, domínio ~99%.
+  - Testes verdes em domínio, serviços, persistência, repositórios e endpoints; cobertura total ~98%, domínio ~98,5%.
   - Lint type-aware, formatação determinística e CI a cada push/PR — pipeline verde ponta a ponta.
-  - Detalhes: `context/walkthroughs/2026-07-26_Walkthrough_Bloco_5_Simulacao.md`.
+  - Detalhes: `context/walkthroughs/2026-07-27_Walkthrough_Bloco_6_Zonas_Exclusao.md`.
 - Technical debt (ordem do roadmap — `docs/BACKLOG.md`):
-  - Blocos 6-8: zonas de exclusão (E5-2), dashboard e feedback (E6), simulação de carga (E8-2).
+  - Blocos 7-8: dashboard e feedback (E6), simulação de carga (E8-2).
+  - Zona nova não invalida viagem já planejada; a simulação recomputa as pernas e pode falhar com `BATERIA_INSUFICIENTE`.
+  - O caminho que contorna a zona não é observável: a viagem guarda paradas e distância, nunca as células do desvio (bloqueia o mapa do E6).
+  - Zonas não são expostas por rota nenhuma — o cliente do dashboard não tem como desenhá-las.
+  - Memo do `MapaCidade` cresce sem limite: uma entrada por origem consultada, cada uma de até `(cidadeTamanho+1)²` células (E8-2).
   - Evento `carga_iniciada` carrega o instante em que o carregamento **termina** — nome e timestamp discordam.
   - Cada mudança de status de viagem regrava `viagens.json` inteiro: O(n²) de I/O ao avançar o relógio (E8-2).
   - Drone é atualizado pelo snapshot do evento, não recalculado — quebra se algo além da linha do tempo mexer nele.
@@ -114,6 +122,14 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 - Viagens são persistidas como os pedidos; gravar pedidos antes das viagens deixa a falha intermediária recuperável (D26).
 - Viagem cujo `droneId` sumiu da frota é descartada no boot e seus pedidos voltam a `pendente` — encolher a frota é operação prevista, não corrupção (D27).
 - Distância: métrica Manhattan `|dx| + |dy|`. A unidade é a **quadra** — nunca km, em nenhum ponto do sistema.
+- Distância é consulta ao `MapaCidade`, não fórmula: contorna as zonas por BFS memoizado por origem, custo O(origens × células) e nunca por par (D36).
+- Zonas são retângulos inclusivos vindos da config (`ZONAS_EXCLUSAO`), derivadas e nunca persistidas — mesma lógica da frota (D37).
+- Sem zonas, `distancia` devolve Manhattan por atalho explícito: o caminho de código sem obstáculo é o do bloco 5.
+- `distancia` devolve `null` para "sem caminho", e o `null` tem dois destinos: em `separarInviaveis` vira `naoAlocados`; depois dela é `ROTA_IMPOSSIVEL` e falha alto.
+- A assimetria acima vale porque dois pontos alcançáveis da base estão na mesma componente conexa — logo alcançáveis entre si.
+- Destino em zona (`DESTINO_BLOQUEADO`) ou cercado (`SEM_ROTA`) é reportado na alocação, nunca rejeitado no cadastro (D38).
+- Base dentro de zona é config incoerente: o boot falha, como no invariante de alcançabilidade.
+- A distância total da simulação é acumulada das pernas percorridas, não lida de `viagem.distanciaQuadras` — imuniza contra arquivo gravado antes das zonas.
 - Bateria e alcance são o mesmo recurso: bateria cheia equivale ao alcance total.
 - Status do pedido (`pendente → alocado → em_voo → entregue`, mais `cancelado`) é distinto da máquina de estados do drone.
 - Transições do drone vêm de uma tabela única em `drone.ts`; par fora dela — inclusive o mesmo estado — é erro, não no-op.

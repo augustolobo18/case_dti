@@ -3,6 +3,7 @@ import request from 'supertest';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { criarApp } from '../server.js';
 import type { CorpoErro } from '../erros.js';
+import { criarMapaCidade } from '../../domain/mapa.js';
 import { criarPersistenciaMemoria } from '../../infra/persistencia-pedidos.js';
 import { criarPersistenciaMemoria as criarPersistenciaMemoriaViagens } from '../../infra/persistencia-viagens.js';
 import { criarRepositorioPedidos } from '../../repositorio/pedidos.js';
@@ -49,14 +50,16 @@ beforeEach(() => {
     persistencia: criarPersistenciaMemoriaViagens(),
     droneIds: frota.listar().map((d) => d.id),
   });
+  const mapa = criarMapaCidade({ cidadeTamanho: 100, zonas: [] });
   const simulacao = criarServicoSimulacao({
     pedidos,
     frota,
     viagens,
     base: OPCOES_FROTA.base,
     tempos: TEMPOS,
+    mapa,
   });
-  app = criarApp({ pedidos, frota, viagens, simulacao });
+  app = criarApp({ pedidos, frota, viagens, simulacao, mapa });
 });
 
 describe('GET /drones', () => {

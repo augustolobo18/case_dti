@@ -133,16 +133,25 @@ export function criarServicoSimulacao(opcoes: OpcoesServicoSimulacao): ServicoSi
       );
     }
 
-    const aplicados: EventoSimulacao[] = [];
-    while (
-      indiceProximoEvento < linha.eventos.length &&
-      linha.eventos[indiceProximoEvento]!.instanteMin <= instanteMin
-    ) {
-      const evento = linha.eventos[indiceProximoEvento]!;
-      aplicarEvento(evento);
-      aplicados.push(evento);
-      indiceProximoEvento += 1;
-    }
+    // Modo de lote (D43): a mutação em memória de cada evento continua
+    // imediata (é dela que `atualizarStatusViagem` depende para o
+    // early-return); só a gravação em disco é adiada para o fim do laço,
+    // uma vez por arquivo em vez de uma vez por evento aplicado.
+    const aplicados = pedidos.emLote(() =>
+      viagens.emLote(() => {
+        const eventosAplicados: EventoSimulacao[] = [];
+        while (
+          indiceProximoEvento < linha.eventos.length &&
+          linha.eventos[indiceProximoEvento]!.instanteMin <= instanteMin
+        ) {
+          const evento = linha.eventos[indiceProximoEvento]!;
+          aplicarEvento(evento);
+          eventosAplicados.push(evento);
+          indiceProximoEvento += 1;
+        }
+        return eventosAplicados;
+      }),
+    );
 
     instante = instanteMin;
     return { instanteAtual: instante, eventosAplicados: aplicados };

@@ -27,7 +27,8 @@ export type CodigoErroDominio =
   | 'EMPACOTAMENTO_INCONSISTENTE'
   | 'DESTINO_BLOQUEADO'
   | 'SEM_ROTA'
-  | 'ROTA_IMPOSSIVEL';
+  | 'ROTA_IMPOSSIVEL'
+  | 'VIAGEM_INCONSISTENTE';
 
 /** Erro lançado quando uma regra do domínio é violada. */
 export class ErroDominio extends Error {

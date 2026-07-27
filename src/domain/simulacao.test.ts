@@ -451,6 +451,47 @@ describe('simular — determinismo', () => {
   });
 });
 
+describe('simular — viagem de drone inexistente falha alto (D44)', () => {
+  it('lança VIAGEM_INCONSISTENTE citando a viagem e o drone ausente da frota', () => {
+    const pedido = novoPedido({ x: 1, y: 0, pesoKg: 1 });
+    const viagem = novaViagem('drone-fantasma', [pedido]);
+
+    expect.assertions(3);
+    try {
+      simular({
+        viagens: [viagem],
+        pedidos: [pedido],
+        drones: [], // frota sem "drone-fantasma"
+        base: BASE,
+        tempos: TEMPOS,
+        mapa: MAPA_SEM_ZONAS,
+      });
+    } catch (erro) {
+      expect(erro).toBeInstanceOf(ErroDominio);
+      expect((erro as ErroDominio).codigo).toBe('VIAGEM_INCONSISTENTE');
+      expect((erro as ErroDominio).message).toMatch(/drone-fantasma/);
+    }
+  });
+
+  it('regressão: com a frota coerente, a linha do tempo continua a mesma de hoje', () => {
+    const pedido = novoPedido({ x: 1, y: 0, pesoKg: 1 });
+    const viagem = novaViagem('drone-1', [pedido]);
+    const drone = novoDrone('drone-1');
+
+    const resultado = simular({
+      viagens: [viagem],
+      pedidos: [pedido],
+      drones: [drone],
+      base: BASE,
+      tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
+    });
+
+    expect(resultado.eventos.length).toBeGreaterThan(0);
+    expect(resultado.metricas.totalEntregas).toBe(1);
+  });
+});
+
 describe('simular — viagem já concluída é ignorada', () => {
   it('não gera eventos para viagem com status "concluida"', () => {
     const pedido = novoPedido({ x: 1, y: 0, pesoKg: 1 });

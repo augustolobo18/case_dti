@@ -1,11 +1,18 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ErroDominio } from '../domain/erros.js';
 import { alocarPedidos } from '../domain/alocacao.js';
 import { criarMapaCidade, type MapaCidade } from '../domain/mapa.js';
 import { criarPedido, type LimitesPedido } from '../domain/pedido.js';
 import type { TemposSimulacao } from '../domain/simulacao.js';
-import { criarPersistenciaMemoria as criarPersistenciaMemoriaPedidos } from '../infra/persistencia-pedidos.js';
-import { criarPersistenciaMemoria as criarPersistenciaMemoriaViagens } from '../infra/persistencia-viagens.js';
+import { criarViagem } from '../domain/viagem.js';
+import {
+  criarPersistenciaMemoria as criarPersistenciaMemoriaPedidos,
+  type PersistenciaPedidos,
+} from '../infra/persistencia-pedidos.js';
+import {
+  criarPersistenciaMemoria as criarPersistenciaMemoriaViagens,
+  type PersistenciaViagens,
+} from '../infra/persistencia-viagens.js';
 import { criarRepositorioPedidos, type RepositorioPedidos } from '../repositorio/pedidos.js';
 import { criarRepositorioFrota, type RepositorioFrota } from '../repositorio/frota.js';
 import { criarRepositorioViagens, type RepositorioViagens } from '../repositorio/viagens.js';
@@ -204,5 +211,159 @@ describe('criarServicoSimulacao', () => {
       expect(drone.posicao).toEqual(BASE);
       expect(drone.bateriaQuadras).toBe(drone.alcanceQuadras);
     }
+  });
+});
+
+describe('criarServicoSimulacao — boot segue protegido pela reconciliação D27 (D44)', () => {
+  it('viagens e frota coerentes após reconciliação: recomputar() no construtor não lança', () => {
+    const pedido = novoPedidoAjudante(3, 4, 5);
+    const persistenciaPedidos = criarPersistenciaMemoriaPedidos([pedido]);
+    const pedidosCoerentes = criarRepositorioPedidos(persistenciaPedidos);
+    const frotaCoerente = criarRepositorioFrota({
+      base: BASE,
+      capacidadeKg: 10,
+      alcanceQuadras: 40,
+      quantidade: 1,
+    });
+    const droneId = frotaCoerente.listar()[0]!.id;
+    const viagemCoerente = criarViagem({
+      droneId,
+      pedidos: [pedido],
+      base: BASE,
+      capacidadeKg: 10,
+      alcanceQuadras: 40,
+      mapa: MAPA_SEM_ZONAS,
+      gerarId: () => 'viagem-boot',
+    });
+    // Reconciliação D27 acontece na criação do repositório de viagens, antes
+    // de `criarServicoSimulacao` — mesma ordem de `src/index.ts`.
+    const viagensCoerentes = criarRepositorioViagens({
+      persistencia: criarPersistenciaMemoriaViagens([viagemCoerente]),
+      droneIds: frotaCoerente.listar().map((d) => d.id),
+    });
+
+    expect(() =>
+      criarServicoSimulacao({
+        pedidos: pedidosCoerentes,
+        frota: frotaCoerente,
+        viagens: viagensCoerentes,
+        base: BASE,
+        tempos: TEMPOS,
+        mapa: MAPA_SEM_ZONAS,
+      }),
+    ).not.toThrow();
+  });
+});
+
+describe('criarServicoSimulacao — avancarPara grava uma vez por arquivo (D43)', () => {
+  let persistenciaPedidos: PersistenciaPedidos;
+  let persistenciaViagens: PersistenciaViagens;
+  let pedidosLote: RepositorioPedidos;
+  let frotaLote: RepositorioFrota;
+  let viagensLote: RepositorioViagens;
+  let contadorLote = 0;
+
+  function novoPedidoLote(x: number, y: number, pesoKg = 1) {
+    contadorLote += 1;
+    const idFixo = `pedido-lote-${contadorLote}`;
+    return criarPedido(
+      { x, y, pesoKg, prioridade: 'baixa' },
+      { limites: LIMITES, gerarId: () => idFixo },
+    );
+  }
+
+  function alocarEPersistirLote() {
+    const pendentes = pedidosLote.listar({ status: 'pendente' });
+    const resultado = alocarPedidos({
+      pedidos: pendentes,
+      droneIds: frotaLote.listar().map((d) => d.id),
+      base: BASE,
+      // Capacidade de 1kg: cada pedido de 1kg vira sua própria viagem —
+      // garante várias viagens para o teste de contagem de gravações.
+      capacidadeKg: 1,
+      alcanceQuadras: 40,
+      mapa: MAPA_SEM_ZONAS,
+    });
+    if (resultado.viagens.length > 0) {
+      pedidosLote.marcarComoAlocados(resultado.viagens.flatMap((v) => v.pedidoIds));
+      viagensLote.substituirTodas([...viagensLote.listar(), ...resultado.viagens]);
+    }
+    return resultado;
+  }
+
+  beforeEach(() => {
+    contadorLote = 0;
+    persistenciaPedidos = criarPersistenciaMemoriaPedidos();
+    pedidosLote = criarRepositorioPedidos(persistenciaPedidos);
+    frotaLote = criarRepositorioFrota({
+      base: BASE,
+      capacidadeKg: 10,
+      alcanceQuadras: 40,
+      quantidade: 2,
+    });
+    persistenciaViagens = criarPersistenciaMemoriaViagens();
+    viagensLote = criarRepositorioViagens({
+      persistencia: persistenciaViagens,
+      droneIds: frotaLote.listar().map((d) => d.id),
+    });
+  });
+
+  it('avancarPara que aplica todos os eventos grava pedidos.json e viagens.json exatamente 1 vez cada', () => {
+    pedidosLote.adicionar(novoPedidoLote(3, 4, 1));
+    pedidosLote.adicionar(novoPedidoLote(1, 2, 1));
+    pedidosLote.adicionar(novoPedidoLote(5, 6, 1));
+    alocarEPersistirLote();
+
+    const servico = criarServicoSimulacao({
+      pedidos: pedidosLote,
+      frota: frotaLote,
+      viagens: viagensLote,
+      base: BASE,
+      tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
+    });
+    const linha = servico.recomputar();
+
+    const espiaPedidos = vi.spyOn(persistenciaPedidos, 'salvar');
+    const espiaViagens = vi.spyOn(persistenciaViagens, 'salvar');
+
+    servico.avancarPara(linha.metricas.makespanMin + 1000);
+
+    expect(espiaPedidos).toHaveBeenCalledTimes(1);
+    expect(espiaViagens).toHaveBeenCalledTimes(1);
+
+    // Regressão de estado: idêntico ao comportamento de hoje, só a contagem muda.
+    for (const pedido of pedidosLote.listar()) {
+      expect(pedido.status).toBe('entregue');
+    }
+    for (const viagem of viagensLote.listar()) {
+      expect(viagem.status).toBe('concluida');
+    }
+    for (const drone of frotaLote.listar()) {
+      expect(drone.estado).toBe('idle');
+    }
+  });
+
+  it('avancarPara que não aplica nenhum evento não grava nada', () => {
+    pedidosLote.adicionar(novoPedidoLote(3, 4, 1));
+    alocarEPersistirLote();
+
+    const servico = criarServicoSimulacao({
+      pedidos: pedidosLote,
+      frota: frotaLote,
+      viagens: viagensLote,
+      base: BASE,
+      tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
+    });
+    servico.recomputar();
+
+    const espiaPedidos = vi.spyOn(persistenciaPedidos, 'salvar');
+    const espiaViagens = vi.spyOn(persistenciaViagens, 'salvar');
+
+    servico.avancarPara(0);
+
+    expect(espiaPedidos).not.toHaveBeenCalled();
+    expect(espiaViagens).not.toHaveBeenCalled();
   });
 });

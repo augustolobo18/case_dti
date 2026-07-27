@@ -27,6 +27,14 @@ export type RepositorioPedidos = {
   reverterParaPendente(ids: readonly string[]): Pedido[];
   despachar(ids: readonly string[]): Pedido[];
   entregar(ids: readonly string[]): Pedido[];
+  /**
+   * Executa `fn` em modo de lote (D43): mutações dentro de `fn` continuam
+   * mudando a memória imediatamente, mas a gravação em disco é adiada para o
+   * fim de `fn` — uma única chamada a `salvar`, em vez de uma por mutação.
+   * Reentrante: só o lote mais externo grava. Se `fn` lançar, a exceção
+   * propaga e o progresso mutado até ali ainda é gravado (`finally`).
+   */
+  emLote<T>(fn: () => T): T;
 };
 
 /**
@@ -44,6 +52,8 @@ export type RepositorioPedidos = {
  */
 export function criarRepositorioPedidos(persistencia: PersistenciaPedidos): RepositorioPedidos {
   let pedidos: Pedido[] = persistencia.carregar();
+  let adiandoGravacao = false;
+  let sujo = false;
 
   function buscarPorId(id: string): Pedido {
     const pedido = pedidos.find((item) => item.id === id);
@@ -51,6 +61,36 @@ export function criarRepositorioPedidos(persistencia: PersistenciaPedidos): Repo
       throw new ErroDominio('PEDIDO_NAO_ENCONTRADO', `Pedido não encontrado: id="${id}".`);
     }
     return pedido;
+  }
+
+  /**
+   * Ponto único de gravação (D43): fora de `emLote`, grava imediatamente
+   * (write-through de sempre); dentro, só marca `sujo` e adia — quem grava é
+   * o `emLote` mais externo, no `finally`.
+   */
+  function persistir(): void {
+    if (adiandoGravacao) {
+      sujo = true;
+      return;
+    }
+    persistencia.salvar(pedidos);
+  }
+
+  function emLote<T>(fn: () => T): T {
+    if (adiandoGravacao) {
+      // Reentrante: só o lote mais externo grava.
+      return fn();
+    }
+    adiandoGravacao = true;
+    try {
+      return fn();
+    } finally {
+      adiandoGravacao = false;
+      if (sujo) {
+        sujo = false;
+        persistencia.salvar(pedidos);
+      }
+    }
   }
 
   return {
@@ -70,7 +110,7 @@ export function criarRepositorioPedidos(persistencia: PersistenciaPedidos): Repo
 
     adicionar(pedido: Pedido): Pedido {
       pedidos = [...pedidos, pedido];
-      persistencia.salvar(pedidos);
+      persistir();
       return pedido;
     },
 
@@ -78,7 +118,7 @@ export function criarRepositorioPedidos(persistencia: PersistenciaPedidos): Repo
       const pedido = buscarPorId(id);
       const cancelado = cancelarPedido(pedido);
       pedidos = pedidos.map((item) => (item.id === id ? cancelado : item));
-      persistencia.salvar(pedidos);
+      persistir();
       return cancelado;
     },
 
@@ -97,6 +137,8 @@ export function criarRepositorioPedidos(persistencia: PersistenciaPedidos): Repo
     entregar(ids: readonly string[]): Pedido[] {
       return mutarEmLote(ids, entregarPedido);
     },
+
+    emLote,
   };
 
   /**
@@ -111,7 +153,7 @@ export function criarRepositorioPedidos(persistencia: PersistenciaPedidos): Repo
 
     const porId = new Map(transformados.map((pedido) => [pedido.id, pedido]));
     pedidos = pedidos.map((item) => porId.get(item.id) ?? item);
-    persistencia.salvar(pedidos);
+    persistir();
 
     return transformados;
   }

@@ -75,4 +75,84 @@ describe('criarRepositorioViagens', () => {
     expect(repositorio.pedidoIdsOrfaos()).toEqual([]);
     expect(chamadasSalvar).toBe(0);
   });
+
+  describe('emLote — modo de lote (D43)', () => {
+    function repositorioEspiado(inicial: Viagem[] = [novaViagem()]) {
+      const persistencia = criarPersistenciaMemoria(inicial);
+      let chamadasSalvar = 0;
+      const persistenciaEspiada = {
+        carregar: () => persistencia.carregar(),
+        salvar: (viagens: readonly Viagem[]) => {
+          chamadasSalvar += 1;
+          persistencia.salvar(viagens);
+        },
+      };
+      const repositorio = criarRepositorioViagens({
+        persistencia: persistenciaEspiada,
+        droneIds: ['drone-1'],
+      });
+      return { repositorio, contador: () => chamadasSalvar };
+    }
+
+    it('duas chamadas de substituirTodas dentro de emLote geram 1 salvar; fora dele, 2', () => {
+      const { repositorio, contador } = repositorioEspiado();
+
+      repositorio.emLote(() => {
+        repositorio.substituirTodas([novaViagem({ id: 'v1' })]);
+        repositorio.substituirTodas([novaViagem({ id: 'v2' })]);
+      });
+      expect(contador()).toBe(1);
+
+      repositorio.substituirTodas([novaViagem({ id: 'v3' })]);
+      repositorio.substituirTodas([novaViagem({ id: 'v4' })]);
+      expect(contador()).toBe(3);
+    });
+
+    it('leitura dentro do lote enxerga a mutação anterior (memória imediata)', () => {
+      const { repositorio } = repositorioEspiado();
+
+      repositorio.emLote(() => {
+        repositorio.substituirTodas([novaViagem({ id: 'v1' })]);
+        expect(repositorio.listar()).toEqual([novaViagem({ id: 'v1' })]);
+      });
+    });
+
+    it('emLote que lança propaga a exceção e ainda assim grava uma vez (finally)', () => {
+      const { repositorio, contador } = repositorioEspiado();
+
+      expect.assertions(2);
+      try {
+        repositorio.emLote(() => {
+          repositorio.substituirTodas([novaViagem({ id: 'v1' })]);
+          throw new Error('falha proposital dentro do lote');
+        });
+      } catch (erro) {
+        expect((erro as Error).message).toBe('falha proposital dentro do lote');
+      }
+      expect(contador()).toBe(1);
+    });
+
+    it('emLote aninhado só grava no lote mais externo', () => {
+      const { repositorio, contador } = repositorioEspiado();
+
+      repositorio.emLote(() => {
+        repositorio.substituirTodas([novaViagem({ id: 'v1' })]);
+        repositorio.emLote(() => {
+          repositorio.substituirTodas([novaViagem({ id: 'v2' })]);
+        });
+      });
+
+      expect(contador()).toBe(1);
+    });
+
+    it('emLote sem nenhuma mutação não grava nada', () => {
+      const { repositorio, contador } = repositorioEspiado();
+
+      repositorio.emLote(() => {
+        repositorio.listar();
+      });
+
+      expect(contador()).toBe(0);
+    });
+  });
 });

@@ -1,6 +1,6 @@
 # Context Index — case_dti (DroneDelivery)
 
-> Artifact map. Updated: 2026-07-27 (v1.4)
+> Artifact map. Updated: 2026-07-27 (v1.5)
 
 ## Quick Navigation
 
@@ -66,8 +66,8 @@ No artifacts.
 | `src/infra/schema-pedido.ts`       | Schema do pedido já persistido; enums vindos do domínio    |
 | `src/infra/schema-viagem.ts`       | Schema da viagem já persistida                              |
 | `src/infra/erros.ts`               | `ErroPersistencia` — falha de I/O, não de regra de negócio  |
-| `src/repositorio/pedidos.ts`       | Lista em memória, grava a cada mutação, filtros e mutação em lote atômica |
-| `src/repositorio/viagens.ts`       | Write-through; reconcilia viagens órfãs na criação e expõe `pedidoIdsOrfaos` (D27) |
+| `src/repositorio/pedidos.ts`       | Lista em memória, write-through, filtros e `emLote` que adia só a gravação (D43) |
+| `src/repositorio/viagens.ts`       | Write-through com `emLote`; reconcilia viagens órfãs na criação e expõe `pedidoIdsOrfaos` (D27) |
 | `src/repositorio/frota.ts`         | Frota montada da config no boot; consulta e `atualizar`, sem persistência (D24) |
 
 ### Domínio
@@ -86,7 +86,7 @@ No artifacts.
 ### Serviços
 | File                      | Responsibility                                               |
 | ------------------------- | ------------------------------------------------------------ |
-| `src/servicos/simulacao.ts` | Relógio virtual e aplicação dos eventos aos 3 repositórios; sem regra própria (D30–D33) |
+| `src/servicos/simulacao.ts` | Relógio virtual e aplicação dos eventos aos 3 repositórios, em lote; sem regra própria (D30–D33, D43) |
 
 ### Dashboard
 | File                     | Responsibility                                            |

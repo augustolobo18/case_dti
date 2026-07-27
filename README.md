@@ -284,10 +284,14 @@ persistido (D31/D37), e é determinístico — o backtracking desempata por meno
 
 `GET /dashboard` serve uma página HTML/CSS/JS autossuficiente (sem dependência de CDN ou host
 externo, D41): exibe o painel de métricas (entregas realizadas, tempo médio por entrega, makespan e
-drone mais eficiente, D19) e desenha o mapa em SVG a partir de `/mapa`, `/simulacao`, `/drones` e
-`/entregas/rota?caminho=true` — malha, base, zonas de exclusão e as rotas contornando-as. Os botões
-"Alocar pedidos" e "Avançar relógio" chamam `POST /entregas/alocar` e `POST /simulacao/avancar` e
-recarregam os dados. Abra `http://localhost:3000/dashboard` no navegador com o servidor de pé.
+drone mais eficiente, D19) e desenha o mapa em SVG a partir de `/mapa`, `/simulacao`, `/drones`,
+`/entregas/rota?caminho=true` e `/pedidos` — grade da malha com rótulos de eixo `0..N`, base, zonas
+de exclusão, rotas contornando-as, os destinos dos pedidos ainda não entregues (`pendente`,
+`alocado`, `em_voo`) como marcador de cliente e a posição de cada drone como marcador próprio,
+visualmente distinto do cliente. Uma legenda fixa abaixo do mapa nomeia os quatro marcadores (base,
+zona de exclusão, cliente, drone). Os botões "Alocar pedidos" e "Avançar relógio" chamam
+`POST /entregas/alocar` e `POST /simulacao/avancar` e recarregam os dados. Abra
+`http://localhost:3000/dashboard` no navegador com o servidor de pé.
 
 **Consultar o mapa (zonas e tamanho da malha):**
 

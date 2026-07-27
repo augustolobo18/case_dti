@@ -596,3 +596,37 @@ Cada decisão registra o **contexto**, a **escolha** e o **porquê** (incluindo 
   do erro, fazendo parecer entrada inválida do cliente quando é inconsistência interna;
   manter o `continue` silencioso (é exatamente a dívida que este ADR fecha — esconde um bug em
   vez de sinalizá-lo, indo contra o padrão do resto do domínio).
+
+## D45 — Testar o JS embutido do dashboard executando o script real em jsdom ✅
+
+- **Contexto:** o `<script>` inline de `src/dashboard/pagina.ts` (D41) nunca era executado por
+  teste — `pagina.test.ts` só verificava trechos da string do HTML. Isso deixou passar dois
+  defeitos de desenho na validação visual de 27/07/2026: a classe `.cliente` estava aplicada à
+  posição dos drones (nunca aos destinos dos pedidos) e `carregarTudo()` nunca buscava
+  `/pedidos`, então nenhum cliente aparecia no mapa; a "malha" também era só a moldura externa,
+  sem grade nem rótulos de eixo. A cobertura de 100% do arquivo mascarava os dois problemas
+  porque media a string produzida, nunca o comportamento do script avaliado no navegador.
+- **Escolha:** `pagina.test.ts` monta `paginaDashboard()` num `JSDOM` real com
+  `runScripts: 'dangerously'`, injeta um `fetch` stub por URL via `beforeParse` antes do parse
+  e aguarda o tick que resolve o `Promise.all` de `carregarTudo()`. Os asserts leem o SVG
+  resultante (`querySelectorAll`, `getAttribute`) — nunca layout computado, que o jsdom não
+  implementa para SVG. `vitest.config.ts` não muda: o `JSDOM` é construído explicitamente por
+  teste, em vez de trocar o `environment` global do Vitest para `jsdom`.
+- **Porquê:** preserva D41 — nenhum asset novo, nenhum passo de build, o script continua
+  inline na mesma template string servida em produção — e testa exatamente essa string, não
+  uma cópia extraída para um módulo separado que poderia divergir do que é servido de verdade.
+  `runScripts: 'dangerously'` é seguro aqui porque o único HTML montado é o da própria
+  `paginaDashboard()` do projeto; o padrão seria perigoso se reaplicado sobre conteúdo de
+  terceiros, e o comentário no arquivo de teste deixa isso explícito.
+  **Limitação registrada:** a cobertura v8 de `pagina.ts` não sobe com este ADR — ela continua
+  medindo a string produzida pela função, nunca o código avaliado dentro do jsdom (motor de
+  cobertura e motor de execução do script são processos diferentes). O comportamento do script
+  passa a ser testado; a métrica de cobertura do arquivo continua sem enxergar esse trecho. Ler
+  o número como "o JS agora está coberto" repetiria o mesmo engano que originou esta correção.
+- **Alternativas descartadas:** extrair o `<script>` para um módulo `.ts` separado, importado e
+  testado diretamente (perde D41 puro — o build passaria a depender de empacotar/servir dois
+  artefatos sincronizados, exatamente o risco que D41 evitou); usar `environment: 'jsdom'` no
+  Vitest globalmente (afeta todos os testes do projeto por causa de uma única página, e a
+  maioria do domínio é propositalmente Node puro); testar geometria renderizada em pixels ou
+  `getBBox` (jsdom não implementa layout de SVG — o teste ficaria frágil ou simplesmente não
+  funcionaria, ver Rollback & Risks do plano de correção).

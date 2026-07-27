@@ -179,8 +179,15 @@ export function simular(opcoes: OpcoesSimulacao): LinhaDoTempo {
   for (const [droneId, viagensDoDrone] of viagensPorDrone) {
     const droneReal = dronesPorId.get(droneId);
     if (!droneReal) {
-      // Drone referenciado pela viagem não existe mais na frota atual — nada a simular.
-      continue;
+      // Falha alto (D44): a reconciliação do boot (D27) já descarta viagem
+      // de drone que deixou de existir antes de chegar aqui — se ainda assim
+      // acontece, é bug de invariante, não entrada válida a ser ignorada.
+      const viagemInconsistente = viagensDoDrone[0];
+      throw new ErroDominio(
+        'VIAGEM_INCONSISTENTE',
+        `Viagem "${viagemInconsistente?.id}" aponta para o drone "${droneId}", ` +
+          'ausente da frota atual.',
+      );
     }
 
     let sequencia = 0;

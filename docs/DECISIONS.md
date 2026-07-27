@@ -539,3 +539,60 @@ Cada decisão registra o **contexto**, a **escolha** e o **porquê** (incluindo 
 - **Alternativas descartadas:** manter `distanciaManhattan` no rastreio por ser mais barato
   (O(1) vs. consulta ao mapa) — o custo é irrelevante numa única consulta por requisição de
   rastreio, bem diferente do roteamento que reconsulta a distância O(k²) vezes por inserção.
+
+## D43 — Persistência em lote no avanço do relógio (`emLote`) ✅
+
+- **Contexto:** `POST /simulacao/avancar` (D32) aplica cada evento vencido ao repositório de
+  pedidos e ao de viagens; cada transição grava o arquivo inteiro (`persistencia.salvar`) no
+  ato — `viagens.json` duas vezes por viagem (`em_execucao`, `concluida`) e `pedidos.json` uma
+  vez por decolagem mais uma vez **por pedido entregue**. Com `n` pedidos isso é `O(n)`
+  gravações de `O(n)` bytes cada, `O(n²)` de I/O por avanço — registrado no metaspec como dívida.
+- **Escolha:** os dois repositórios (`RepositorioPedidos`, `RepositorioViagens`) ganham
+  `emLote<T>(fn: () => T): T` — um modo de *unit of work*: dentro de `fn`, cada mutação
+  continua alterando a memória imediatamente (write-through de memória, sem mudar), mas a
+  gravação em disco é adiada e só acontece **uma vez**, no `finally` do lote mais externo.
+  `avancarPara` envolve só o laço de eventos: `pedidos.emLote(() => viagens.emLote(() => {
+  ...laço... }))`. O escopo inclui **os dois repositórios**, não só viagens — o volume
+  dominante do `O(n²)` está no lado de pedidos (uma gravação por entrega), não no de viagens;
+  corrigir só um deles deixaria de pé exatamente o termo que mais cresce com `n`.
+- **Porquê:** colapsa as N gravações por arquivo em 1 sem trocar corretude por throughput — um
+  evento que lança no meio do laço ainda deixa o progresso parcial em disco (o `finally` grava
+  o que já foi mutado até a exceção), preservando a semântica de hoje. Manter o repositório como
+  dono da persistência (em vez de o serviço acumular mutações e chamar `substituirTodas` uma
+  vez no fim) preserva o desenho atual: o repositório de pedidos não expõe "substituir tudo",
+  só transições de domínio (`despachar`, `entregar`) — é isso que impede a regra de status de
+  se duplicar fora dele.
+- **Alternativas descartadas:** serviço acumula as mutações e grava tudo de uma vez via
+  `substituirTodas` (exigiria o repositório de pedidos expor um método de escrita bruta,
+  reabrindo a porta para a regra de transição vazar para fora do domínio); debounce/coalescing
+  assíncrono das gravações (a persistência é síncrona por decisão, D6/D26 — introduzir
+  assincronia só para isto complica o restante do sistema sem necessidade); só corrigir viagens,
+  deixando pedidos como está (deixaria de pé o termo dominante do `O(n²)`, ver acima).
+
+## D44 — Viagem de drone inexistente falha alto (`VIAGEM_INCONSISTENTE`) ✅
+
+- **Contexto:** o motor de simulação (`domain/simulacao.ts`) agrupava as viagens por
+  `droneId` e, ao não achar o drone correspondente na frota recebida, pulava o grupo em
+  silêncio (`continue`) — a viagem simplesmente não gerava eventos, sem sinalizar nada. Isso
+  contraria o padrão de "falhar alto" já usado em todo o resto do domínio (ex.:
+  `ROTA_IMPOSSIVEL` quando não há caminho entre dois pontos). Depois de D27, a reconciliação
+  do boot já descarta viagem órfã de drone inexistente antes de qualquer simulação rodar — se
+  o motor ainda assim recebe uma viagem apontando para um drone ausente, é sinal de um bug de
+  invariante em algum outro caminho do código, não uma entrada válida a ser tolerada.
+- **Escolha:** trocar o `continue` por `throw new ErroDominio('VIAGEM_INCONSISTENTE', ...)`,
+  citando a viagem e o drone ausente na mensagem. Novo código no union de
+  `CodigoErroDominio` e no `Record` exaustivo de `src/api/erros.ts`, mapeado para **500**
+  (erro interno, não entrada do cliente).
+- **Porquê:** `DRONE_NAO_ENCONTRADO` (404) já existe e mapeia justamente o caso de cliente
+  pedindo um `droneId` que não existe — reusá-lo aqui mentiria sobre a natureza da falha: não é
+  um recurso que o chamador pediu errado, é o próprio sistema descobrindo um estado que seus
+  invariantes deveriam ter impedido. 500 comunica isso corretamente, no mesmo espírito de
+  `EMPACOTAMENTO_INCONSISTENTE` e `ROTA_IMPOSSIVEL`, que já ocupam essa faixa por motivo
+  análogo. A reconciliação de D27 continua sendo a primeira linha de defesa — ela roda antes de
+  `criarServicoSimulacao` em `src/index.ts` e é o motivo pelo qual este `throw` é
+  inalcançável em boot íntegro; o `throw` é a rede de segurança para o caso de essa garantia
+  falhar em algum ponto futuro do código.
+- **Alternativas descartadas:** reusar `DRONE_NAO_ENCONTRADO` (404) — mentiria sobre a origem
+  do erro, fazendo parecer entrada inválida do cliente quando é inconsistência interna;
+  manter o `continue` silencioso (é exatamente a dívida que este ADR fecha — esconde um bug em
+  vez de sinalizá-lo, indo contra o padrão do resto do domínio).

@@ -3,19 +3,22 @@ import { rotaNaoEncontrada, tratarErros } from './middleware-erros.js';
 import { criarRotasPedidos } from './rotas/pedidos.js';
 import { criarRotasDrones } from './rotas/drones.js';
 import { criarRotasEntregas } from './rotas/entregas.js';
+import { criarRotasSimulacao } from './rotas/simulacao.js';
 import type { RepositorioPedidos } from '../repositorio/pedidos.js';
 import type { RepositorioFrota } from '../repositorio/frota.js';
 import type { RepositorioViagens } from '../repositorio/viagens.js';
+import type { ServicoSimulacao } from '../servicos/simulacao.js';
 
 /**
- * Repositórios injetados na aplicação. Um objeto — em vez de parâmetros
- * posicionais — para que blocos futuros acrescentem dependências sem virar
- * mais um parâmetro solto.
+ * Repositórios e serviços injetados na aplicação. Um objeto — em vez de
+ * parâmetros posicionais — para que blocos futuros acrescentem dependências
+ * sem virar mais um parâmetro solto.
  */
 export type Dependencias = {
   readonly pedidos: RepositorioPedidos;
   readonly frota: RepositorioFrota;
   readonly viagens: RepositorioViagens;
+  readonly simulacao: ServicoSimulacao;
 };
 
 /**
@@ -40,8 +43,10 @@ export function criarApp(dependencias: Dependencias): Express {
       pedidos: dependencias.pedidos,
       frota: dependencias.frota,
       viagens: dependencias.viagens,
+      simulacao: dependencias.simulacao,
     }),
   );
+  app.use('/simulacao', criarRotasSimulacao(dependencias.simulacao));
 
   // 404 de rota inexistente e middleware de erro sempre por último (a ordem importa no Express).
   app.use(rotaNaoEncontrada);

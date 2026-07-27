@@ -155,6 +155,17 @@ function empacotar(
       // Não avança `indice`: o próximo elemento ocupou a posição do removido.
     }
 
+    if (grupo.length === 0) {
+      // Nenhum candidato coube nesta rodada: com a fila já filtrada por
+      // `separarInviaveis`, isso é um bug do algoritmo, não uma entrada
+      // inválida — falha alto em vez de girar para sempre sem progresso.
+      throw new ErroDominio(
+        'EMPACOTAMENTO_INCONSISTENTE',
+        'Empacotamento inconsistente: nenhum pedido restante coube na viagem, ' +
+          'mesmo após a filtragem de inviáveis.',
+      );
+    }
+
     viagens.push(grupo);
   }
 

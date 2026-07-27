@@ -1,6 +1,6 @@
 # Timeline — case_dti (DroneDelivery)
 
-> Evolutionary history. 8 phases | Jul/2026.
+> Evolutionary history. 9 phases | Jul/2026.
 
 ## Phase 0: Inicialização (Jul/2026)
 
@@ -68,7 +68,7 @@
 
 ## Phase 7: Bloco 4 — alocação & otimização (Jul/2026)
 
-- Branch `feat/bloco-4`, sem commit.
+- Commits: 8aeebcc, 40805d5 (PR #7).
 - Épico E3 completo: alocação greedy, roteamento nearest-neighbor e as rotas `POST /entregas/alocar` e `GET /entregas/rota`.
 - Alocação virou comando explícito, não efeito colateral do cadastro: separa planejamento de cadastro e mantém o `GET` sem efeito (D25).
 - `alocarPedidos` ficou pura — sem I/O, relógio ou aleatoriedade — o que permitiu testá-la com ~500 pedidos por semente fixa já neste bloco.
@@ -77,15 +77,28 @@
 - Empacotamento é first-fit, não next-fit: pedido que não cabe é pulado, o que faz um pacote leve ocupar espaço onde um pesado não coube.
 - Detalhes: `context/walkthroughs/2026-07-26_Walkthrough_Bloco_4_Alocacao.md`.
 
+## Phase 8: Bloco 5 — simulação & estados (Jul/2026)
+
+- Branch `feat/bloco-5`, sem commit.
+- Épico E4 completo: máquina de estados do drone, motor de simulação em tempo simulado, métricas de tempo e bateria consumível.
+- Máquina de estados virou tabela (`Record<EstadoDrone, EstadoDrone[]>`), não cadeia de `if`: estado novo sem transição declarada quebra o typecheck.
+- Transição e efeito físico ficaram em funções separadas — o motor compõe as duas na ordem certa sem que nenhuma conheça o roteiro da viagem.
+- Escolhido relógio virtual avançável em vez de simulação instantânea: é o que faz `GET /drones` exibir de fato os estados (D30).
+- Linha do tempo não é persistida — recomputada das viagens a cada boot, mesma lógica de D24 para a frota (D31).
+- Camada `src/servicos/` criada: aplicar eventos toca três repositórios, não cabia nem na rota nem num repositório.
+- Ciclo de vida da viagem (D35) virou requisito, não opção: sem ele a segunda alocação reexecutaria entregas já feitas.
+- Exportação de `empacotar` feita para testar a guarda do invariante e revertida em seguida — o teste exercitava estado inalcançável ao custo da API pública do módulo.
+- Detalhes: `context/walkthroughs/2026-07-26_Walkthrough_Bloco_5_Simulacao.md`.
+
 ## Metrics Snapshot (2026-07-26)
 
 | Métrica            | Valor                          |
 | ------------------ | ------------------------------ |
 | Linguagem          | TypeScript (ESM)               |
 | Runtime            | Node.js 24 LTS (>= 20.12)      |
-| Fases              | ~8 (init + setup + planejamento + bloco 1 + ferramental + blocos 2-4) |
-| Backlog            | 8 épicos; E1, E2, E3 e E7 concluídos; ADRs em docs/DECISIONS.md |
-| API                | 4 rotas de pedido + 2 de drone + 2 de entrega + `/health` |
-| Testes             | passing (~14 arquivos); cobertura total ~98%, domínio ~99% |
+| Fases              | ~9 (init + setup + planejamento + bloco 1 + ferramental + blocos 2-5) |
+| Backlog            | 8 épicos; E1-E4 e E7 concluídos; ADRs em docs/DECISIONS.md |
+| API                | 4 rotas de pedido + 2 de drone + 3 de entrega + 3 de simulação + `/health` |
+| Testes             | passing (~17 arquivos); cobertura total ~98%, domínio ~99% |
 | Verificação        | typecheck, lint, format, testes e build verdes no CI |
-| Git                | main com 6 PRs mergeados; `feat/bloco-4` com a implementação sem commit |
+| Git                | main com 7 PRs mergeados; `feat/bloco-5` com a implementação sem commit |

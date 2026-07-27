@@ -17,6 +17,7 @@ const VIAGEM_EXEMPLO: Viagem = {
   ],
   distanciaQuadras: 2,
   cargaKg: 4,
+  status: 'planejada',
 };
 
 describe('criarPersistenciaMemoria', () => {
@@ -125,6 +126,16 @@ describe('criarPersistenciaArquivo', () => {
     persistencia.salvar([VIAGEM_EXEMPLO]);
 
     expect(existsSync(caminho)).toBe(true);
+    expect(persistencia.carregar()).toEqual([VIAGEM_EXEMPLO]);
+  });
+
+  it('carrega um arquivo salvo sem o campo "status" com o default "planejada" (compatibilidade)', () => {
+    const caminho = join(diretorio, 'viagens.json');
+    const semStatus: Record<string, unknown> = { ...VIAGEM_EXEMPLO };
+    delete semStatus.status;
+    writeFileSync(caminho, JSON.stringify([semStatus]), 'utf-8');
+    const persistencia = criarPersistenciaArquivo(caminho);
+
     expect(persistencia.carregar()).toEqual([VIAGEM_EXEMPLO]);
   });
 });

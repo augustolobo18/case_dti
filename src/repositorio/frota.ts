@@ -10,10 +10,11 @@ export type OpcoesFrota = {
   readonly quantidade: number;
 };
 
-/** Repositório de frota: expõe consulta sobre os drones em memória. */
+/** Repositório de frota: expõe consulta e atualização sobre os drones em memória. */
 export type RepositorioFrota = {
   listar(): Drone[];
   buscarPorId(id: string): Drone;
+  atualizar(drone: Drone): Drone;
 };
 
 /**
@@ -27,7 +28,7 @@ export type RepositorioFrota = {
 export function criarRepositorioFrota(opcoes: OpcoesFrota): RepositorioFrota {
   const { base, capacidadeKg, alcanceQuadras, quantidade } = opcoes;
 
-  const frota = criarFrota(quantidade, {
+  let frota = criarFrota(quantidade, {
     base,
     capacidadeKg,
     alcanceQuadras,
@@ -48,5 +49,15 @@ export function criarRepositorioFrota(opcoes: OpcoesFrota): RepositorioFrota {
     },
 
     buscarPorId,
+
+    /**
+     * Troca o drone de mesmo `id` pela cópia informada (usado pela simulação,
+     * E4-1). A frota segue não persistida (D24) — só em memória.
+     */
+    atualizar(drone: Drone): Drone {
+      buscarPorId(drone.id);
+      frota = frota.map((item) => (item.id === drone.id ? drone : item));
+      return drone;
+    },
   };
 }

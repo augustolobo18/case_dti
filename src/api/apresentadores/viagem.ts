@@ -12,6 +12,7 @@ export type RespostaViagem = {
   readonly paradas: Viagem['paradas'];
   readonly distanciaQuadras: number;
   readonly cargaKg: number;
+  readonly status: Viagem['status'];
   readonly totalParadas: number;
   readonly totalPedidos: number;
 };
@@ -25,6 +26,7 @@ export function paraRespostaViagem(viagem: Viagem): RespostaViagem {
     paradas: viagem.paradas,
     distanciaQuadras: viagem.distanciaQuadras,
     cargaKg: viagem.cargaKg,
+    status: viagem.status,
     totalParadas: viagem.paradas.length,
     totalPedidos: viagem.pedidoIds.length,
   };

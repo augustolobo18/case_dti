@@ -68,3 +68,46 @@ describe('criarRepositorioFrota', () => {
     }
   });
 });
+
+describe('atualizar', () => {
+  it('troca o drone pelo id e devolve a cópia atualizada', () => {
+    const repositorio = criarRepositorioFrota(OPCOES);
+    const original = repositorio.buscarPorId('drone-2');
+    const atualizado = { ...original, estado: 'em_voo' as const, cargaKg: 3 };
+
+    const resultado = repositorio.atualizar(atualizado);
+
+    expect(resultado).toEqual(atualizado);
+    expect(repositorio.buscarPorId('drone-2')).toEqual(atualizado);
+  });
+
+  it('não afeta os demais drones da frota', () => {
+    const repositorio = criarRepositorioFrota(OPCOES);
+    const original1 = repositorio.buscarPorId('drone-1');
+    const atualizado2 = { ...repositorio.buscarPorId('drone-2'), estado: 'em_voo' as const };
+
+    repositorio.atualizar(atualizado2);
+
+    expect(repositorio.buscarPorId('drone-1')).toEqual(original1);
+  });
+
+  it('lança DRONE_NAO_ENCONTRADO ao atualizar um id inexistente', () => {
+    const repositorio = criarRepositorioFrota(OPCOES);
+    const inexistente = { ...repositorio.buscarPorId('drone-1'), id: 'drone-inexistente' };
+
+    expect.assertions(2);
+    try {
+      repositorio.atualizar(inexistente);
+    } catch (erro) {
+      expect(erro).toBeInstanceOf(ErroDominio);
+      expect((erro as ErroDominio).codigo).toBe('DRONE_NAO_ENCONTRADO');
+    }
+  });
+
+  it('a frota segue não persistida (nenhuma chamada de I/O)', () => {
+    const repositorio = criarRepositorioFrota(OPCOES);
+    const atualizado = { ...repositorio.buscarPorId('drone-1'), cargaKg: 5 };
+
+    expect(() => repositorio.atualizar(atualizado)).not.toThrow();
+  });
+});

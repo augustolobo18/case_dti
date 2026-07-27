@@ -9,6 +9,8 @@ import { criarPersistenciaMemoria as criarPersistenciaMemoriaViagens } from '../
 import { criarRepositorioPedidos, type RepositorioPedidos } from '../../repositorio/pedidos.js';
 import { criarRepositorioFrota, type OpcoesFrota } from '../../repositorio/frota.js';
 import { criarRepositorioViagens, type RepositorioViagens } from '../../repositorio/viagens.js';
+import { criarServicoSimulacao, type ServicoSimulacao } from '../../servicos/simulacao.js';
+import type { TemposSimulacao } from '../../domain/simulacao.js';
 import type { RespostaViagem } from '../apresentadores/viagem.js';
 
 const LIMITES: LimitesPedido = { capacidadeKg: 10, cidadeTamanho: 100 };
@@ -17,6 +19,12 @@ const OPCOES_FROTA: OpcoesFrota = {
   capacidadeKg: 10,
   alcanceQuadras: 40,
   quantidade: 2,
+};
+const TEMPOS: TemposSimulacao = {
+  velocidadeQuadrasMin: 1,
+  carregamentoMin: 5,
+  entregaMin: 2,
+  recargaMinPorQuadra: 0.5,
 };
 
 /** Tipa o corpo da resposta como envelope de erro (D20), evitando acesso `any`. */
@@ -44,6 +52,7 @@ function comoListaPedidos(corpo: unknown): Pedido[] {
 
 let pedidos: RepositorioPedidos;
 let viagens: RepositorioViagens;
+let simulacao: ServicoSimulacao;
 let app: Express;
 let contador = 0;
 
@@ -70,7 +79,14 @@ beforeEach(() => {
     persistencia: criarPersistenciaMemoriaViagens(),
     droneIds: frota.listar().map((d) => d.id),
   });
-  app = criarApp({ pedidos, frota, viagens });
+  simulacao = criarServicoSimulacao({
+    pedidos,
+    frota,
+    viagens,
+    base: OPCOES_FROTA.base,
+    tempos: TEMPOS,
+  });
+  app = criarApp({ pedidos, frota, viagens, simulacao });
   contador = 0;
 });
 
@@ -155,15 +171,26 @@ describe('POST /entregas/alocar', () => {
       buscarPorId: () => {
         throw new Error('não usado neste teste');
       },
+      atualizar: () => {
+        throw new Error('não usado neste teste');
+      },
     };
     const viagensVazias = criarRepositorioViagens({
       persistencia: criarPersistenciaMemoriaViagens(),
       droneIds: [],
     });
+    const simulacaoVazia = criarServicoSimulacao({
+      pedidos: pedidosVazio,
+      frota: frotaVazia,
+      viagens: viagensVazias,
+      base: OPCOES_FROTA.base,
+      tempos: TEMPOS,
+    });
     const appSemFrota = criarApp({
       pedidos: pedidosVazio,
       frota: frotaVazia,
       viagens: viagensVazias,
+      simulacao: simulacaoVazia,
     });
     pedidosVazio.adicionar(novoPedidoAjudante({ x: 1, y: 0, pesoKg: 1 }));
 
@@ -171,5 +198,64 @@ describe('POST /entregas/alocar', () => {
 
     expect(resposta.status).toBe(422);
     expect(comoErro(resposta.body).erro.codigo).toBe('FROTA_VAZIA');
+  });
+});
+
+describe('POST /entregas/alocar — integração com a simulação (D13/D33)', () => {
+  it('deixa a linha do tempo pronta e o relógio em 0', async () => {
+    pedidos.adicionar(novoPedidoAjudante({ x: 1, y: 0, pesoKg: 3 }));
+
+    await request(app).post('/entregas/alocar');
+
+    expect(simulacao.instanteAtual()).toBe(0);
+    expect(simulacao.linhaDoTempo().eventos.length).toBeGreaterThan(0);
+  });
+});
+
+describe('GET /entregas/rota — status e filtro', () => {
+  it('expõe o status da viagem e aceita ?status=', async () => {
+    pedidos.adicionar(novoPedidoAjudante({ x: 1, y: 0, pesoKg: 3 }));
+    await request(app).post('/entregas/alocar');
+
+    const todas = await request(app).get('/entregas/rota');
+    expect(comoListaViagens(todas.body)[0]?.status).toBe('planejada');
+
+    const filtradas = await request(app).get('/entregas/rota').query({ status: 'planejada' });
+    expect(comoListaViagens(filtradas.body)).toHaveLength(1);
+
+    const concluidas = await request(app).get('/entregas/rota').query({ status: 'concluida' });
+    expect(comoListaViagens(concluidas.body)).toHaveLength(0);
+  });
+});
+
+describe('DELETE /entregas/concluidas', () => {
+  it('remove só as viagens concluídas', async () => {
+    pedidos.adicionar(novoPedidoAjudante({ x: 1, y: 0, pesoKg: 3 }));
+    await request(app).post('/entregas/alocar');
+    const makespan = simulacao.linhaDoTempo().metricas.makespanMin;
+    simulacao.avancarPara(makespan + 1000);
+
+    const resposta = await request(app).delete('/entregas/concluidas');
+
+    expect(resposta.status).toBe(200);
+    const restantes = await request(app).get('/entregas/rota');
+    expect(comoListaViagens(restantes.body)).toHaveLength(0);
+  });
+
+  it('realocar depois de concluir não reexecuta as viagens já concluídas', async () => {
+    pedidos.adicionar(novoPedidoAjudante({ x: 1, y: 0, pesoKg: 3 }));
+    await request(app).post('/entregas/alocar');
+    const makespan = simulacao.linhaDoTempo().metricas.makespanMin;
+    simulacao.avancarPara(makespan + 1000);
+
+    await request(app).delete('/entregas/concluidas');
+    pedidos.adicionar(novoPedidoAjudante({ x: 2, y: 0, pesoKg: 3 }));
+    await request(app).post('/entregas/alocar');
+
+    const rota = await request(app).get('/entregas/rota');
+    expect(comoListaViagens(rota.body)).toHaveLength(1);
+    for (const viagem of comoListaViagens(rota.body)) {
+      expect(viagem.status).toBe('planejada');
+    }
   });
 });

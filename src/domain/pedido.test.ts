@@ -6,6 +6,8 @@ import {
   cancelarPedido,
   alocarPedido,
   reverterParaPendente,
+  despacharPedido,
+  entregarPedido,
   type LimitesPedido,
 } from './pedido.js';
 
@@ -232,6 +234,84 @@ describe('reverterParaPendente', () => {
       } catch (erro) {
         expect(erro).toBeInstanceOf(ErroDominio);
         expect((erro as ErroDominio).codigo).toBe('ALOCACAO_NAO_PERMITIDA');
+      }
+    },
+  );
+});
+
+describe('despacharPedido', () => {
+  it('despacha um pedido alocado, devolvendo nova cópia sem mutar o original', () => {
+    const original = comStatus(
+      criarPedido(
+        { x: 0, y: 0, pesoKg: 1, prioridade: 'baixa' },
+        { limites: LIMITES, gerarId: gerarIdFixo },
+      ),
+      'alocado',
+    );
+
+    const despachado = despacharPedido(original);
+
+    expect(despachado.status).toBe('em_voo');
+    expect(original.status).toBe('alocado');
+    expect(despachado).not.toBe(original);
+  });
+
+  it.each(['pendente', 'em_voo', 'entregue', 'cancelado'] as const)(
+    'rejeita despachar pedido com status "%s" com ENTREGA_NAO_PERMITIDA',
+    (status) => {
+      expect.assertions(2);
+      const pedido = comStatus(
+        criarPedido(
+          { x: 0, y: 0, pesoKg: 1, prioridade: 'baixa' },
+          { limites: LIMITES, gerarId: gerarIdFixo },
+        ),
+        status,
+      );
+
+      try {
+        despacharPedido(pedido);
+      } catch (erro) {
+        expect(erro).toBeInstanceOf(ErroDominio);
+        expect((erro as ErroDominio).codigo).toBe('ENTREGA_NAO_PERMITIDA');
+      }
+    },
+  );
+});
+
+describe('entregarPedido', () => {
+  it('entrega um pedido em_voo, devolvendo nova cópia sem mutar o original', () => {
+    const original = comStatus(
+      criarPedido(
+        { x: 0, y: 0, pesoKg: 1, prioridade: 'baixa' },
+        { limites: LIMITES, gerarId: gerarIdFixo },
+      ),
+      'em_voo',
+    );
+
+    const entregue = entregarPedido(original);
+
+    expect(entregue.status).toBe('entregue');
+    expect(original.status).toBe('em_voo');
+    expect(entregue).not.toBe(original);
+  });
+
+  it.each(['pendente', 'alocado', 'entregue', 'cancelado'] as const)(
+    'rejeita entregar pedido com status "%s" com ENTREGA_NAO_PERMITIDA',
+    (status) => {
+      expect.assertions(2);
+      const pedido = comStatus(
+        criarPedido(
+          { x: 0, y: 0, pesoKg: 1, prioridade: 'baixa' },
+          { limites: LIMITES, gerarId: gerarIdFixo },
+        ),
+        status,
+      );
+
+      try {
+        entregarPedido(pedido);
+      } catch (erro) {
+        expect(erro).toBeInstanceOf(ErroDominio);
+        expect((erro as ErroDominio).codigo).toBe('ENTREGA_NAO_PERMITIDA');
       }
     },
   );

@@ -1,6 +1,6 @@
 # Context Index — case_dti (DroneDelivery)
 
-> Artifact map. Updated: 2026-07-26 (v1.0)
+> Artifact map. Updated: 2026-07-26 (v1.1)
 
 ## Quick Navigation
 
@@ -20,12 +20,16 @@ No artifacts.
 
 | File                                          | Date       | Description                                  | Status |
 | --------------------------------------------- | ---------- | -------------------------------------------- | ------ |
-| `2026-07-26_Walkthrough_Bloco_4_Alocacao.md`  | 2026-07-26 | Épico E3: viagem, greedy, roteamento e ADRs D25–D29 | atual  |
+| `2026-07-26_Walkthrough_Bloco_5_Simulacao.md` | 2026-07-26 | Épico E4: estados, motor de simulação, tempo, bateria e ADRs D30–D35 | atual |
+| `2026-07-26_Walkthrough_Bloco_4_Alocacao.md`  | 2026-07-26 | Épico E3: viagem, greedy, roteamento e ADRs D25–D29 | anterior |
 | `2026-07-26_Walkthrough_Bloco_3_Frota.md`     | 2026-07-26 | Épico E2: frota da config, rotas de drone e ADR D24 | anterior |
 | `2026-07-25_Walkthrough_Bloco_2_Pedidos.md`   | 2026-07-25 | Épico E1 + erros padronizados: camadas, decisões e dívidas | anterior |
 
 ### Plans — plans/
-No artifacts.
+
+| File                                          | Date       | Description                                  | Status |
+| --------------------------------------------- | ---------- | -------------------------------------------- | ------ |
+| `2026-07-26_Bloco_5_Simulacao_Estados.md`     | 2026-07-26 | Plano do épico E4 — implementado; mover para `old/` no commit | implementado |
 
 ## Critical Files
 
@@ -41,10 +45,13 @@ No artifacts.
 | `src/api/server.ts`           | Recebe `Dependencias`; monta rotas, 404 e middleware de erro (nessa ordem) |
 | `src/api/rotas/pedidos.ts`    | As 4 rotas de pedido; repassa erros via `next`, sem tratá-los |
 | `src/api/rotas/drones.ts`     | As 2 rotas de consulta da frota (E2-2)                       |
-| `src/api/rotas/entregas.ts`   | `POST /alocar` e `GET /rota`; grava pedidos antes das viagens (D26) |
+| `src/api/rotas/entregas.ts`   | `POST /alocar`, `GET /rota?status=` e `DELETE /concluidas`; grava pedidos antes das viagens (D26) |
+| `src/api/rotas/simulacao.ts`  | `GET /`, `POST /avancar` e `GET /eventos` (E4)               |
 | `src/api/apresentadores/drone.ts` | `RespostaDrone`: campos do domínio + `bateriaPercentual` derivado |
 | `src/api/apresentadores/viagem.ts` | `RespostaViagem`: campos do domínio + totais derivados na borda |
+| `src/api/apresentadores/simulacao.ts` | `RespostaEvento` e `RespostaMetricas`                  |
 | `src/api/schemas/pedido.ts`   | Zod na borda: valida a forma, não a regra (D3, D23)          |
+| `src/api/schemas/simulacao.ts`| Zod do avanço (exatamente um entre `ateInstante` e `minutos`), recorte de eventos e filtro de viagem |
 | `src/api/erros.ts`            | Mapa código → HTTP e envelope `{ erro: {...} }` (D20)        |
 | `src/api/middleware-erros.ts` | Handler central de erro e 404 de rota inexistente            |
 
@@ -58,7 +65,7 @@ No artifacts.
 | `src/infra/erros.ts`               | `ErroPersistencia` — falha de I/O, não de regra de negócio  |
 | `src/repositorio/pedidos.ts`       | Lista em memória, grava a cada mutação, filtros e mutação em lote atômica |
 | `src/repositorio/viagens.ts`       | Write-through; reconcilia viagens órfãs na criação e expõe `pedidoIdsOrfaos` (D27) |
-| `src/repositorio/frota.ts`         | Frota montada da config no boot; consulta apenas, sem persistência (D24) |
+| `src/repositorio/frota.ts`         | Frota montada da config no boot; consulta e `atualizar`, sem persistência (D24) |
 
 ### Domínio
 | File                       | Responsibility                                              |
@@ -66,9 +73,15 @@ No artifacts.
 | `src/domain/erros.ts`      | `ErroDominio` com código tipado; sem referência a HTTP       |
 | `src/domain/coordenada.ts` | Malha 2D, validação `0..N` e distância Manhattan             |
 | `src/domain/pedido.ts`     | Tipo `Pedido`, prioridades, status e factory validante       |
-| `src/domain/drone.ts`      | Tipo `Drone`, estados, frota homogênea e gerador de id sequencial |
-| `src/domain/viagem.ts`     | Tipo `Viagem`, roteamento nearest-neighbor, guarda de invariante e reconciliação |
+| `src/domain/drone.ts`      | Tipo `Drone`, frota homogênea, gerador de id sequencial e a tabela de transições (E4-1) |
+| `src/domain/viagem.ts`     | Tipo `Viagem`, status (D35), roteamento nearest-neighbor, guarda de invariante e reconciliação |
 | `src/domain/alocacao.ts`   | **Núcleo do case**: ordenação (D11) e empacotamento greedy (D9), puros |
+| `src/domain/simulacao.ts`  | Motor puro do E4: viagens → eventos com timestamps + métricas (D13, D14) |
+
+### Serviços
+| File                      | Responsibility                                               |
+| ------------------------- | ------------------------------------------------------------ |
+| `src/servicos/simulacao.ts` | Relógio virtual e aplicação dos eventos aos 3 repositórios; sem regra própria (D30–D33) |
 
 ### Config
 | File                  | Responsibility                                  |
@@ -98,6 +111,7 @@ No artifacts.
 | Domínio      | `src/domain/*.test.ts`               | passing |
 | Persistência | `src/infra/*.test.ts`                | passing |
 | Repositório  | `src/repositorio/*.test.ts`          | passing |
+| Serviços     | `src/servicos/*.test.ts`             | passing |
 | API          | `src/api/rotas/*.test.ts` (supertest)| passing |
 
 > Toda implementação segue TDD: o teste falha antes do código que o faz passar.

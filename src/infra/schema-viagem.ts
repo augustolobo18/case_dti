@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { STATUS_VIAGEM } from '../domain/viagem.js';
 
 /** Schema de uma coordenada `{ x, y }` — inteiros, sem depender do tamanho da malha. */
 const schemaCoordenada = z.object({
@@ -32,6 +33,8 @@ export const schemaViagemPersistida = z.object({
   cargaKg: z
     .number({ invalid_type_error: 'cargaKg deve ser um número' })
     .nonnegative('cargaKg não pode ser negativa'),
+  // Default para compatibilidade com arquivos gravados antes do Bloco 5 (sem o campo).
+  status: z.enum(STATUS_VIAGEM).default('planejada'),
 });
 
 /** Schema do arquivo inteiro: um array de viagens persistidas. */

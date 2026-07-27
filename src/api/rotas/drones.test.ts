@@ -8,6 +8,8 @@ import { criarPersistenciaMemoria as criarPersistenciaMemoriaViagens } from '../
 import { criarRepositorioPedidos } from '../../repositorio/pedidos.js';
 import { criarRepositorioFrota, type OpcoesFrota } from '../../repositorio/frota.js';
 import { criarRepositorioViagens } from '../../repositorio/viagens.js';
+import { criarServicoSimulacao } from '../../servicos/simulacao.js';
+import type { TemposSimulacao } from '../../domain/simulacao.js';
 import type { RespostaDrone } from '../apresentadores/drone.js';
 
 const OPCOES_FROTA: OpcoesFrota = {
@@ -15,6 +17,12 @@ const OPCOES_FROTA: OpcoesFrota = {
   capacidadeKg: 10,
   alcanceQuadras: 40,
   quantidade: 3,
+};
+const TEMPOS: TemposSimulacao = {
+  velocidadeQuadrasMin: 1,
+  carregamentoMin: 5,
+  entregaMin: 2,
+  recargaMinPorQuadra: 0.5,
 };
 
 /** Tipa o corpo da resposta como envelope de erro (D20), evitando acesso `any`. */
@@ -41,7 +49,14 @@ beforeEach(() => {
     persistencia: criarPersistenciaMemoriaViagens(),
     droneIds: frota.listar().map((d) => d.id),
   });
-  app = criarApp({ pedidos, frota, viagens });
+  const simulacao = criarServicoSimulacao({
+    pedidos,
+    frota,
+    viagens,
+    base: OPCOES_FROTA.base,
+    tempos: TEMPOS,
+  });
+  app = criarApp({ pedidos, frota, viagens, simulacao });
 });
 
 describe('GET /drones', () => {

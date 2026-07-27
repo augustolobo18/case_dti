@@ -48,7 +48,7 @@ Escopo **completo** comprometido no MVP (núcleo + todos os diferenciais). A pri
 
 ## E1 — Gestão de Pedidos
 
-### E1-1 — Cadastrar pedido 🔲
+### E1-1 — Cadastrar pedido ✅
 
 > **Como** Operador, **quero** cadastrar um pedido informando localização `(x, y)`,
 > peso e prioridade, **para** que ele entre na fila de alocação das entregas.
@@ -65,7 +65,7 @@ Escopo **completo** comprometido no MVP (núcleo + todos os diferenciais). A pri
 derivado do estado do drone que o carrega. A máquina de estados completa do drone
 (`idle → carregando → em_voo → entregando → retornando → idle`) pertence ao épico E4.
 
-### E1-2 — Consultar pedidos e sua situação 🔲
+### E1-2 — Consultar pedidos e sua situação ✅
 
 > **Como** Operador, **quero** consultar os pedidos cadastrados e sua situação,
 > **para** acompanhar o que ainda falta entregar.
@@ -77,7 +77,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 - Filtrar a listagem por prioridade.
 - Buscar um pedido específico por `id`; id inexistente retorna erro claro.
 
-### E1-3 — Cancelar pedido 🔲
+### E1-3 — Cancelar pedido ✅
 
 > **Como** Operador, **quero** cancelar um pedido que ainda não saiu para entrega,
 > **para** corrigir enganos ou desistências antes da alocação.
@@ -162,7 +162,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 
 > Épico de diferencial — detalhamento mais leve; pontos imaturos marcados como "a refinar".
 
-### E4-1 — Máquina de estados do drone 🔲
+### E4-1 — Máquina de estados do drone ✅
 
 > **Como** Sistema, **quero** simular a execução de uma viagem fazendo o drone percorrer
 > os estados `idle → carregando → em_voo → entregando → retornando → idle`, **para**
@@ -175,7 +175,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 - Ao concluir a viagem, o drone volta a `idle` e os pedidos da viagem passam a `entregue`.
 - _A refinar na implementação:_ durações de cada estado e granularidade dos eventos.
 
-### E4-2 — Tempo de entrega 🔲
+### E4-2 — Tempo de entrega ✅
 
 > **Como** Operador, **quero** saber o tempo de cada entrega e o tempo total da operação,
 > **para** avaliar a eficiência do sistema.
@@ -186,7 +186,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 - As métricas ficam disponíveis para o dashboard/relatório (E6).
 - _A refinar na implementação:_ velocidade e tempos fixos padrão; tratamento de viagens paralelas entre drones.
 
-### E4-3 — Bateria e recarga automática 🔲
+### E4-3 — Bateria e recarga automática ✅
 
 > **Como** Sistema, **quero** simular a bateria do drone, consumindo-a ao operar e
 > recarregando na base, **para** que os drones voltem a carregar quando a bateria fica baixa.
@@ -260,7 +260,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 
 ## E7 — API REST & Erros
 
-### E7-1 — Tratamento de erros consistente 🔲
+### E7-1 — Tratamento de erros consistente ✅
 
 > **Como** Operador/Cliente, **quero** receber respostas de erro claras e consistentes, **para**
 > entender o que deu errado e como corrigir.
@@ -272,7 +272,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 - Erros de validação (Zod, D3) reportam o campo e o motivo de forma clara.
 - Rotas inexistentes retornam 404 padronizado.
 
-### E7-2 — Documentar endpoints no README 🔲
+### E7-2 — Documentar endpoints no README ✅
 
 > **Como** Avaliador/Operador, **quero** uma referência clara dos endpoints, **para**
 > entender e testar a API rapidamente.

@@ -29,4 +29,16 @@ export const config = {
 
   /** Caminho do arquivo JSON onde as viagens calculadas são persistidas localmente (D26). */
   viagensArquivo: process.env.VIAGENS_ARQUIVO ?? 'data/viagens.json',
+
+  /** Velocidade do drone em voo, em quadras por minuto (D14). */
+  droneVelocidadeQuadrasMin: Number(process.env.DRONE_VELOCIDADE_QUADRAS_MIN ?? 1),
+
+  /** Tempo fixo de carregamento na base antes da decolagem, em minutos (D14). */
+  tempoCarregamentoMin: Number(process.env.TEMPO_CARREGAMENTO_MIN ?? 5),
+
+  /** Tempo fixo de entrega por parada, em minutos (D14). */
+  tempoEntregaMin: Number(process.env.TEMPO_ENTREGA_MIN ?? 2),
+
+  /** Duração da recarga, em minutos por quadra de bateria consumida (D15/D34). */
+  recargaMinPorQuadra: Number(process.env.RECARGA_MIN_POR_QUADRA ?? 0.5),
 } as const;

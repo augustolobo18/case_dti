@@ -2,7 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { ErroDominio } from './erros.js';
 import type { Coordenada } from './coordenada.js';
 import { criarPedido, type LimitesPedido, type Pedido } from './pedido.js';
-import { criarViagem, reconciliarViagens, rotearNearestNeighbor } from './viagem.js';
+import {
+  comStatusViagem,
+  criarViagem,
+  reconciliarViagens,
+  rotearNearestNeighbor,
+} from './viagem.js';
 
 const BASE: Coordenada = { x: 0, y: 0 };
 const LIMITES: LimitesPedido = { capacidadeKg: 100, cidadeTamanho: 100 };
@@ -96,6 +101,7 @@ describe('criarViagem', () => {
       paradas: [BASE, pedidoA.destino, pedidoB.destino, BASE],
       distanciaQuadras: 1 + 2 + 3,
       cargaKg: 5,
+      status: 'planejada',
     });
   });
 
@@ -197,6 +203,41 @@ describe('criarViagem', () => {
     });
 
     expect(viagem.id).toBe('id-customizado');
+  });
+
+  it('nasce com status "planejada"', () => {
+    const pedido = novoPedido({ x: 1, y: 0, pesoKg: 1 });
+
+    const viagem = criarViagem({
+      droneId: 'drone-1',
+      pedidos: [pedido],
+      base: BASE,
+      capacidadeKg: 10,
+      alcanceQuadras: 40,
+      gerarId: gerarIdFixo,
+    });
+
+    expect(viagem.status).toBe('planejada');
+  });
+});
+
+describe('comStatusViagem', () => {
+  it('devolve uma nova cópia com o status alterado, sem mutar o original', () => {
+    const pedido = novoPedido({ x: 1, y: 0, pesoKg: 1 });
+    const original = criarViagem({
+      droneId: 'drone-1',
+      pedidos: [pedido],
+      base: BASE,
+      capacidadeKg: 10,
+      alcanceQuadras: 40,
+      gerarId: () => 'viagem-fixa',
+    });
+
+    const atualizada = comStatusViagem(original, 'em_execucao');
+
+    expect(atualizada.status).toBe('em_execucao');
+    expect(original.status).toBe('planejada');
+    expect(atualizada).not.toBe(original);
   });
 });
 

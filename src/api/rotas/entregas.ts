@@ -4,22 +4,24 @@ import { alocarPedidos } from '../../domain/alocacao.js';
 import type { RepositorioPedidos } from '../../repositorio/pedidos.js';
 import type { RepositorioFrota } from '../../repositorio/frota.js';
 import type { RepositorioViagens } from '../../repositorio/viagens.js';
+import type { ServicoSimulacao } from '../../servicos/simulacao.js';
 import { paraRespostaViagem } from '../apresentadores/viagem.js';
+import { schemaFiltrosViagem } from '../schemas/simulacao.js';
 
 /** Dependências das rotas de entrega. */
 export type DependenciasEntregas = {
   readonly pedidos: RepositorioPedidos;
   readonly frota: RepositorioFrota;
   readonly viagens: RepositorioViagens;
+  readonly simulacao: ServicoSimulacao;
 };
 
 /**
- * Cria as rotas de entrega (E3-1/E3-2/E3-3), casca fina sobre o domínio e os
- * repositórios recebidos por parâmetro. Sem schema Zod: nenhuma das duas
- * rotas recebe corpo ou query.
+ * Cria as rotas de entrega (E3-1/E3-2/E3-3/E4), casca fina sobre o domínio,
+ * os repositórios e o serviço de simulação recebidos por parâmetro.
  */
 export function criarRotasEntregas(dependencias: DependenciasEntregas): Router {
-  const { pedidos, frota, viagens } = dependencias;
+  const { pedidos, frota, viagens, simulacao } = dependencias;
   const router = Router();
 
   router.post('/alocar', (_req, res, next) => {
@@ -47,6 +49,10 @@ export function criarRotasEntregas(dependencias: DependenciasEntregas): Router {
         viagens.substituirTodas([...viagens.listar(), ...resultado.viagens]);
       }
 
+      // Recomputa a linha do tempo e zera o relógio (D13/D33): a simulação
+      // reflete só as viagens ainda não concluídas.
+      simulacao.recomputar();
+
       res.status(201).json({
         viagens: resultado.viagens.map(paraRespostaViagem),
         naoAlocados: resultado.naoAlocados,
@@ -56,9 +62,27 @@ export function criarRotasEntregas(dependencias: DependenciasEntregas): Router {
     }
   });
 
-  router.get('/rota', (_req, res, next) => {
+  router.get('/rota', (req, res, next) => {
     try {
-      res.status(200).json(viagens.listar().map(paraRespostaViagem));
+      const filtros = schemaFiltrosViagem.parse(req.query);
+      const todas = viagens.listar();
+      const filtradas =
+        filtros.status === undefined
+          ? todas
+          : todas.filter((viagem) => viagem.status === filtros.status);
+      res.status(200).json(filtradas.map(paraRespostaViagem));
+    } catch (erro) {
+      next(erro);
+    }
+  });
+
+  router.delete('/concluidas', (_req, res, next) => {
+    try {
+      const todas = viagens.listar();
+      const restantes = todas.filter((viagem) => viagem.status !== 'concluida');
+      const removidas = todas.length - restantes.length;
+      viagens.substituirTodas(restantes);
+      res.status(200).json({ removidas });
     } catch (erro) {
       next(erro);
     }

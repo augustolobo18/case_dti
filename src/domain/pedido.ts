@@ -137,3 +137,37 @@ export function reverterParaPendente(pedido: Pedido): Pedido {
 
   return comStatus(pedido, 'pendente');
 }
+
+/**
+ * Despacha um pedido alocado para voo, devolvendo uma nova cópia com status
+ * `em_voo` (E4-1). Só é permitido despachar pedido `alocado`; qualquer outro
+ * status lança `ENTREGA_NAO_PERMITIDA`. Função pura, não muta a entrada.
+ */
+export function despacharPedido(pedido: Pedido): Pedido {
+  if (pedido.status !== 'alocado') {
+    throw new ErroDominio(
+      'ENTREGA_NAO_PERMITIDA',
+      `Pedido ${pedido.id} não pode ser despachado: está com status "${pedido.status}", ` +
+        'só é permitido despachar pedido "alocado".',
+    );
+  }
+
+  return comStatus(pedido, 'em_voo');
+}
+
+/**
+ * Entrega um pedido em voo, devolvendo uma nova cópia com status `entregue`
+ * (E4-1). Só é permitido entregar pedido `em_voo`; qualquer outro status
+ * lança `ENTREGA_NAO_PERMITIDA`. Função pura, não muta a entrada.
+ */
+export function entregarPedido(pedido: Pedido): Pedido {
+  if (pedido.status !== 'em_voo') {
+    throw new ErroDominio(
+      'ENTREGA_NAO_PERMITIDA',
+      `Pedido ${pedido.id} não pode ser entregue: está com status "${pedido.status}", ` +
+        'só é permitido entregar pedido "em_voo".',
+    );
+  }
+
+  return comStatus(pedido, 'entregue');
+}

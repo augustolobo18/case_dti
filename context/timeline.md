@@ -1,6 +1,6 @@
 # Timeline — case_dti (DroneDelivery)
 
-> Evolutionary history. 13 phases | Jul/2026.
+> Evolutionary history. 14 phases | Jul/2026.
 
 ## Phase 0: Inicialização (Jul/2026)
 
@@ -137,15 +137,27 @@
 - A dívida do JS sem teste foi reescrita, não fechada: o comportamento passa a ser testado, mas a cobertura segue medindo a string.
 - Primeira leva nascida de validação manual da aplicação rodando — não do backlog nem de investigação de dívida.
 
+## Phase 13: Replanejamento e cadastro pela tela (Jul/2026)
+
+- Commits: 7e40d6a, 9272cf0, branch `fix/relogio-e-cadastro` (PR #14).
+- Usuário clicando no dashboard achou o que 339 testes verdes não pegaram: replanejar travava a simulação sem volta.
+- Causa: `recomputar` zerava o relógio sem desfazer os efeitos já aplicados; o avanço seguinte redespachava pedido `entregue`.
+- Corrigido zerando o mundo junto com o relógio — pedidos voltam a `alocado`, viagens a `planejada`, frota à base (D46).
+- Idempotência dos eventos foi descartada: violaria a regra de que transição inválida é erro, trocando falha barulhenta por corrupção silenciosa.
+- A primeira correção fechava só um dos dois caminhos; verificar contra o servidor real evitou embarcar meia correção junto do formulário que a expõe.
+- Dashboard ganhou cadastro de pedido e lista com cancelar, restrito aos `pendente`.
+- Segundo achado seguido vindo de executar o sistema, não de teste — o mesmo furo do bloco anterior.
+- Detalhes: `context/walkthroughs/2026-07-27_Walkthrough_Replanejamento_e_Cadastro.md`.
+
 ## Metrics Snapshot (2026-07-27)
 
 | Métrica            | Valor                          |
 | ------------------ | ------------------------------ |
 | Linguagem          | TypeScript (ESM)               |
 | Runtime            | Node.js 24 LTS (>= 20.12)      |
-| Fases              | ~13 (init + setup + planejamento + bloco 1 + ferramental + blocos 2-7 + saneamento + correção do dashboard) |
+| Fases              | ~14 (init + setup + planejamento + bloco 1 + ferramental + blocos 2-7 + saneamento + 2 correções do dashboard) |
 | Backlog            | 8 épicos; E1-E7 concluídos; resta E8-2 (carga); ADRs em docs/DECISIONS.md |
 | API                | 5 rotas de pedido + 2 de drone + 3 de entrega + 3 de simulação + `/mapa` + `/dashboard` + `/health` |
-| Testes             | passing (~25 arquivos); cobertura total ~97%, domínio ~98% |
+| Testes             | passing (~25 arquivos); cobertura total ~97,5%, domínio ~98% |
 | Verificação        | typecheck, lint, format, testes e build verdes no CI |
-| Git                | main com 13 PRs mergeados; sem branch de trabalho aberta |
+| Git                | main com 13 PRs mergeados; `fix/relogio-e-cadastro` publicada no PR #14, aguardando merge |

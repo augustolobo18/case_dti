@@ -1,6 +1,6 @@
 # MetaSpec — case_dti (DroneDelivery)
 
-> Context for AI agents. Version: 1.9 | Updated: 2026-07-27
+> Context for AI agents. Version: 2.0 | Updated: 2026-07-27
 
 ## IDENTITY
 
@@ -77,10 +77,10 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 | Entry       | `src/index.ts`     | Compõe persistências → repositórios → serviço → app, reconcilia viagens órfãs e sobe o HTTP |
 | Dashboard   | `src/dashboard/`   | Página HTML/CSS/SVG/JS inline, sem asset em disco nem host externo |
 
-## CURRENT STATE (v1.9 — 27/07/2026)
+## CURRENT STATE (v2.0 — 27/07/2026)
 
-- `main` limpa e em dia: blocos 1-7, saneamento e correção do dashboard mergeados (PRs #2 a #13), sem branch de trabalho aberta.
-- Próximo: bloco 8 (E8-2 — simulação de carga), único item restante do backlog.
+- Blocos 1-7, saneamento e correção do dashboard na `main` (PRs #2 a #13); `fix/relogio-e-cadastro` publicada no PR #14, aguardando merge.
+- Próximo: mergear o #14 e seguir para o bloco 8 (E8-2 — simulação de carga), único item restante do backlog.
 - Ready:
   - Domínio base: `Coordenada` + distância Manhattan, `Pedido` e `Drone`/frota, com `ErroDominio` tipado.
   - Tipos imutáveis e funções puras; limites entram por parâmetro e `gerarId` é injetável (testes determinísticos).
@@ -97,6 +97,8 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
   - `GET /dashboard` serve página autossuficiente com métricas, mapa SVG das rotas, legenda e controles de simulação.
   - O mapa desenha grade rotulada `0..N`, zonas, base, drones e os clientes ainda não entregues — entregue e cancelado saem da tela.
   - O JS da página é exercitado de verdade: o teste roda o script real em jsdom, com `fetch` stubado (D45).
+  - Dashboard cadastra pedido pela tela e lista os pedidos, com cancelar só nos `pendente` — a UI reflete a regra, não a descobre pelo erro.
+  - Replanejar é coerente: alocar reinicia as viagens não concluídas junto com o relógio, em vez de reaplicar eventos sobre estado avançado (D46).
   - Métricas da simulação incluem entregas por drone e `droneMaisEficiente` (entregas ÷ distância).
   - Avanço do relógio grava cada arquivo uma vez, não uma vez por evento aplicado (D43).
   - `alocarPedidos` e `simular` são puras e determinísticas — sem I/O, relógio ou aleatoriedade.
@@ -108,7 +110,7 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
   - Erros padronizados `{ erro: { codigo, mensagem, detalhes? } }` por middleware central (E7-1).
   - Testes verdes em domínio, serviços, persistência, repositórios e endpoints; cobertura total ~98%, domínio ~98,5%.
   - Lint type-aware, formatação determinística e CI a cada push/PR — pipeline verde ponta a ponta.
-  - Detalhes: `context/walkthroughs/2026-07-27_Walkthrough_Correcao_SVG_Dashboard.md` (E6 completo: `..._Bloco_7_Dashboard_Feedback.md`).
+  - Detalhes: `context/walkthroughs/2026-07-27_Walkthrough_Replanejamento_e_Cadastro.md` (E6 completo: `..._Bloco_7_Dashboard_Feedback.md`).
 - Technical debt (ordem do roadmap — `docs/BACKLOG.md`):
   - Bloco 8: simulação de carga (E8-2).
   - Zona nova não invalida viagem já planejada; a simulação recomputa as pernas e pode falhar com `BATERIA_INSUFICIENTE`.
@@ -118,7 +120,8 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
   - Evento `carga_iniciada` carrega o instante em que o carregamento **termina** — nome e timestamp discordam.
   - Drone é atualizado pelo snapshot do evento, não recalculado — quebra se algo além da linha do tempo mexer nele.
   - Guarda de `empacotar` sem teste, por decisão: fica descoberta de propósito — não reexportar a função.
-  - Não há como reiniciar o relógio sem realocar; alocar no meio de uma rodada zera o instante corrente (D33).
+  - Replanejar é um recomeço, não simulação incremental: alocar no meio de uma rodada refaz do zero as entregas das viagens não concluídas (D46).
+  - `reiniciarViagensNaoConcluidas` reseta a frota inteira; só é seguro porque toda viagem começa e termina na base (D46).
   - Falha entre gravar pedidos e gravar viagens deixa pedido `alocado` sem viagem; a reconciliação do boot não cobre esse caso (D26).
   - Nenhuma rota de listagem tem paginação; `GET /simulacao/eventos` é a de maior volume (E8-2).
 
@@ -166,7 +169,9 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 - Avançar aplica o estado de verdade — pedidos e viagens são persistidos; não é projeção de leitura (D32).
 - Avançar grava em lote: `emLote` adia só a escrita, nunca a mutação em memória, e faz o flush no `finally` (D43).
 - Viagem apontando para drone ausente da frota é `VIAGEM_INCONSISTENTE` (500): depois de D27 é bug, não entrada válida (D44).
-- Alocar recomputa a linha do tempo das viagens não concluídas e zera o relógio (D33).
+- Alocar recomputa a linha do tempo das viagens não concluídas e zera o relógio (D33) — só quando de fato criou viagem (D46).
+- Zerar o relógio obriga a zerar o mundo junto: pedidos das viagens não concluídas voltam a `alocado`, elas a `planejada` e a frota à base (D46).
+- `reiniciarParaAlocado` aceita `alocado`, `em_voo` e `entregue`; recusa `pendente` e `cancelado` — cancelamento é final (D46).
 - Viagem `concluida` é ignorada pelo motor — é o que impede reexecutar entrega já feita (D35).
 - Cancelamento só é permitido a partir de `pendente`; cancelar em qualquer outro status — inclusive já `cancelado` — é erro, não no-op.
 - Erro → HTTP: 400 é entrada malformada, 422 é entrada válida que viola regra de negócio, 404 é inexistente. O mapa é único, em `src/api/erros.ts` — rota nenhuma escolhe status.

@@ -1,6 +1,6 @@
 # Context Index — case_dti (DroneDelivery)
 
-> Artifact map. Updated: 2026-07-27 (v1.7)
+> Artifact map. Updated: 2026-07-27 (v1.8)
 
 ## Quick Navigation
 
@@ -20,7 +20,8 @@ No artifacts.
 
 | File                                          | Date       | Description                                  | Status |
 | --------------------------------------------- | ---------- | -------------------------------------------- | ------ |
-| `2026-07-27_Walkthrough_Correcao_SVG_Dashboard.md` | 2026-07-27 | Clientes e grade no mapa SVG; jsdom sobre o script real (D45) | atual |
+| `2026-07-27_Walkthrough_Replanejamento_e_Cadastro.md` | 2026-07-27 | Replanejamento travava a simulação (D46); cadastro e lista de pedidos na tela | atual |
+| `2026-07-27_Walkthrough_Correcao_SVG_Dashboard.md` | 2026-07-27 | Clientes e grade no mapa SVG; jsdom sobre o script real (D45) | anterior |
 | `2026-07-27_Walkthrough_Bloco_7_Dashboard_Feedback.md` | 2026-07-27 | Épico E6: mapa legível, caminho observável, dashboard, rastreio e ADRs D39–D42 | anterior |
 | `2026-07-27_Walkthrough_Bloco_6_Zonas_Exclusao.md` | 2026-07-27 | Épico E5: mapa, pathfinding BFS, motivos de inviabilidade e ADRs D36–D38 | anterior |
 | `2026-07-26_Walkthrough_Bloco_5_Simulacao.md` | 2026-07-26 | Épico E4: estados, motor de simulação, tempo, bateria e ADRs D30–D35 | anterior |
@@ -78,7 +79,7 @@ No artifacts.
 | `src/domain/coordenada.ts` | Malha 2D, validação `0..N` e distância Manhattan             |
 | `src/domain/mapa.ts`       | `MapaCidade`: parser de zonas, BFS memoizado por origem e o caminho por backtracking (D36–D39) |
 | `src/domain/rastreio.ts`   | Mensagem de status ao cliente, pura; degrada sem distância em vez de lançar (D42) |
-| `src/domain/pedido.ts`     | Tipo `Pedido`, prioridades, status e factory validante       |
+| `src/domain/pedido.ts`     | Tipo `Pedido`, prioridades, status, factory validante e as transições de status (inclui `reiniciarParaAlocado`, D46) |
 | `src/domain/drone.ts`      | Tipo `Drone`, frota homogênea, gerador de id sequencial e a tabela de transições (E4-1) |
 | `src/domain/viagem.ts`     | Tipo `Viagem`, status (D35), roteamento nearest-neighbor, guarda de invariante e reconciliação |
 | `src/domain/alocacao.ts`   | **Núcleo do case**: ordenação (D11) e empacotamento greedy (D9), puros |
@@ -87,12 +88,12 @@ No artifacts.
 ### Serviços
 | File                      | Responsibility                                               |
 | ------------------------- | ------------------------------------------------------------ |
-| `src/servicos/simulacao.ts` | Relógio virtual e aplicação dos eventos aos 3 repositórios, em lote; sem regra própria (D30–D33, D43) |
+| `src/servicos/simulacao.ts` | Relógio virtual e aplicação dos eventos aos 3 repositórios, em lote; `recomputar` reinicia as viagens não concluídas (D30–D33, D43, D46) |
 
 ### Dashboard
 | File                     | Responsibility                                            |
 | ------------------------ | ---------------------------------------------------------- |
-| `src/dashboard/pagina.ts`| HTML/CSS/SVG/JS inline como template string; zero host externo e zero asset em disco (D41). Desenha grade rotulada, zonas, base, clientes não entregues e drones |
+| `src/dashboard/pagina.ts`| HTML/CSS/SVG/JS inline como template string; zero host externo e zero asset em disco (D41). Mapa com grade rotulada, zonas, base, clientes e drones; formulário de cadastro e lista de pedidos |
 
 ### Config
 | File                  | Responsibility                                  |

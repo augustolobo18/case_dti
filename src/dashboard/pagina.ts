@@ -4,11 +4,12 @@
  * exporta o HTML como template string, compila junto e `npm start` serve o
  * dashboard igual ao `npm run dev` (D41).
  *
- * O JS faz `fetch` em `/mapa`, `/simulacao`, `/drones` e
- * `/entregas/rota?caminho=true`, desenha o mapa em SVG (malha, base, zonas,
- * clientes e as rotas contornando as zonas via `caminho`) e liga os botões de
- * `POST /entregas/alocar` e `POST /simulacao/avancar`. Todo texto vindo da API
- * é injetado via `textContent`, nunca `innerHTML`.
+ * O JS faz `fetch` em `/mapa`, `/simulacao`, `/drones`,
+ * `/entregas/rota?caminho=true` e `/pedidos`, desenha o mapa em SVG (grade
+ * rotulada, base, zonas, rotas contornando as zonas via `caminho`, clientes
+ * dos pedidos não entregues e um marcador próprio por drone) e liga os botões
+ * de `POST /entregas/alocar` e `POST /simulacao/avancar`. Todo texto vindo da
+ * API é injetado via `textContent`, nunca `innerHTML`.
  */
 export function paginaDashboard(): string {
   return `<!doctype html>
@@ -68,10 +69,28 @@ export function paginaDashboard(): string {
   }
   #status { font-size: 0.85rem; color: #666; margin-left: 8px; }
   svg { display: block; }
+  .grade { stroke: #e2e2e2; stroke-width: 0.02; }
+  .rotulo-eixo { font-size: 0.3px; fill: #999; }
   .zona { fill: #ffdada; stroke: #e05555; stroke-width: 0.05; }
   .rota { fill: none; stroke: #2b59ff; stroke-width: 0.08; opacity: 0.7; }
   .base { fill: #1a1a2e; }
   .cliente { fill: #e0a500; }
+  .drone { fill: #00a3a3; stroke: #007373; stroke-width: 0.03; }
+  #legenda {
+    list-style: none;
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin: 12px 0 0;
+    padding: 0;
+    font-size: 0.85rem;
+  }
+  #legenda li { display: flex; align-items: center; gap: 6px; }
+  .amostra { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }
+  .amostra-base { background: #1a1a2e; border-radius: 50%; }
+  .amostra-zona { background: #ffdada; border: 1px solid #e05555; }
+  .amostra-cliente { background: #e0a500; border-radius: 50%; }
+  .amostra-drone { background: #00a3a3; border: 1px solid #007373; }
 </style>
 </head>
 <body>
@@ -106,6 +125,12 @@ export function paginaDashboard(): string {
 
 <section id="mapa-container">
   <svg id="mapa" xmlns="http://www.w3.org/2000/svg"></svg>
+  <ul id="legenda">
+    <li><span class="amostra amostra-base"></span> Base</li>
+    <li><span class="amostra amostra-zona"></span> Zona de exclusão</li>
+    <li><span class="amostra amostra-cliente"></span> Cliente</li>
+    <li><span class="amostra amostra-drone"></span> Drone</li>
+  </ul>
 </section>
 
 <script>
@@ -115,6 +140,7 @@ export function paginaDashboard(): string {
   var SVG_NS = "http://www.w3.org/2000/svg";
   var ESCALA = 32;
   var MARGEM = 1;
+  var STATUS_VISIVEIS = ["pendente", "alocado", "em_voo"];
 
   function el(tag, attrs) {
     var node = document.createElementNS(SVG_NS, tag);
@@ -166,7 +192,76 @@ export function paginaDashboard(): string {
     );
   }
 
-  function desenharMapa(mapaResposta, drones, viagens) {
+  function desenharGrade(svg, tamanho, px, py) {
+    for (var i = 0; i <= tamanho; i += 1) {
+      svg.appendChild(
+        el("line", {
+          class: "grade",
+          x1: px(i),
+          y1: py(0),
+          x2: px(i),
+          y2: py(tamanho),
+        }),
+      );
+      svg.appendChild(
+        el("line", {
+          class: "grade",
+          x1: px(0),
+          y1: py(i),
+          x2: px(tamanho),
+          y2: py(i),
+        }),
+      );
+
+      var rotuloX = el("text", {
+        class: "rotulo-eixo",
+        x: px(i),
+        y: py(0) + 0.4,
+        "text-anchor": "middle",
+      });
+      rotuloX.textContent = String(i);
+      svg.appendChild(rotuloX);
+
+      var rotuloY = el("text", {
+        class: "rotulo-eixo",
+        x: px(0) - 0.4,
+        y: py(i),
+        "text-anchor": "end",
+      });
+      rotuloY.textContent = String(i);
+      svg.appendChild(rotuloY);
+    }
+  }
+
+  function desenharClientes(svg, pedidos, px, py) {
+    for (var i = 0; i < pedidos.length; i += 1) {
+      var pedido = pedidos[i];
+      if (STATUS_VISIVEIS.indexOf(pedido.status) === -1) {
+        continue;
+      }
+      var destino = pedido.destino;
+      svg.appendChild(
+        el("circle", { class: "cliente", cx: px(destino.x), cy: py(destino.y), r: 0.2 }),
+      );
+    }
+  }
+
+  function desenharDrones(svg, drones, px, py) {
+    for (var d = 0; d < drones.length; d += 1) {
+      var posicao = drones[d].posicao;
+      if (!posicao) {
+        continue;
+      }
+      var cx = px(posicao.x);
+      var cy = py(posicao.y);
+      var r = 0.22;
+      var pontos =
+        cx + "," + (cy - r) + " " + (cx + r) + "," + (cy + r) + " " + (cx - r) + "," + (cy + r);
+      svg.appendChild(el("polygon", { class: "drone", points: pontos }));
+    }
+  }
+
+  function desenharMapa(mapaResposta, pedidos, drones, viagens) {
     var svg = document.getElementById("mapa");
     if (!svg) {
       return;
@@ -198,6 +293,8 @@ export function paginaDashboard(): string {
       "stroke-width": 0.02,
     });
     svg.appendChild(fundo);
+
+    desenharGrade(svg, tamanho, px, py);
 
     var zonas = mapaResposta.zonas || [];
     for (var i = 0; i < zonas.length; i += 1) {
@@ -237,14 +334,8 @@ export function paginaDashboard(): string {
     var base = mapaResposta.base || { x: 0, y: 0 };
     svg.appendChild(el("circle", { class: "base", cx: px(base.x), cy: py(base.y), r: 0.28 }));
 
-    for (var d = 0; d < drones.length; d += 1) {
-      var drone = drones[d].posicao;
-      if (drone) {
-        svg.appendChild(
-          el("circle", { class: "cliente", cx: px(drone.x), cy: py(drone.y), r: 0.2 }),
-        );
-      }
-    }
+    desenharClientes(svg, pedidos, px, py);
+    desenharDrones(svg, drones, px, py);
   }
 
   function carregarTudo() {
@@ -253,13 +344,15 @@ export function paginaDashboard(): string {
       buscarJson("/simulacao"),
       buscarJson("/drones"),
       buscarJson("/entregas/rota?caminho=true"),
+      buscarJson("/pedidos"),
     ]).then(function (resultados) {
       var mapaResposta = resultados[0];
       var simulacao = resultados[1];
       var drones = resultados[2];
       var viagens = resultados[3];
+      var pedidos = resultados[4];
       atualizarMetricas(simulacao);
-      desenharMapa(mapaResposta, drones, viagens);
+      desenharMapa(mapaResposta, pedidos, drones, viagens);
     });
   }
 

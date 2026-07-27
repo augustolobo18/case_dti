@@ -1,6 +1,6 @@
 # Timeline — case_dti (DroneDelivery)
 
-> Evolutionary history. 12 phases | Jul/2026.
+> Evolutionary history. 13 phases | Jul/2026.
 
 ## Phase 0: Inicialização (Jul/2026)
 
@@ -105,7 +105,7 @@
 
 ## Phase 10: Bloco 7 — dashboard & feedback (Jul/2026)
 
-- Branch `feat/bloco-7`, sem commit até aqui.
+- Commits: aed9286, 5bd93b1 (PRs #10 e #12).
 - Épico E6 completo: mapa legível pela API, caminho observável, dashboard web e rastreio ao cliente.
 - O caminho virou contrato público sem virar dado persistido — derivado do mesmo campo de distâncias do Bloco 6.
 - `campoDistanciasDe` extraído para que `distancia` e `caminho` não possam divergir quanto ao desvio; foi a peça que o plano não previu.
@@ -118,7 +118,7 @@
 
 ## Phase 11: Saneamento de dívidas (Jul/2026)
 
-- Commit: bfe951b, branch `chore/saneamento-dividas` sobre `feat/bloco-7`.
+- Commits: bfe951b, 96abda5 (PR #11), branch `chore/saneamento-dividas` sobre `feat/bloco-7`.
 - Três dívidas do metaspec fechadas sem mudar contrato de rota nem formato de arquivo em disco.
 - Ramo morto do plural em `rastreio.ts` removido; os 100% de branches são a prova de que era inalcançável.
 - Repositórios ganharam `emLote`: o avanço do relógio grava cada arquivo uma vez, não uma por evento (D43).
@@ -126,6 +126,16 @@
 - Adia-se só a escrita, nunca a mutação em memória — é dela que o early-return de `atualizarStatusViagem` depende.
 - Viagem de drone ausente da frota passou a falhar alto com `VIAGEM_INCONSISTENTE`, em vez de ser pulada (D44).
 - Primeira leva de trabalho nascida de investigação de dívida, não do backlog.
+- Publicação das duas branches empilhadas custou um PR extra (#12): o re-apontamento automático do GitHub não substitui mergear o filho na feature antes.
+
+## Phase 12: Correção do dashboard (Jul/2026)
+
+- Commits: 48bcdf8, fe696cf, branch `fix/dashboard-svg`.
+- Subir a aplicação e olhar a tela expôs dois defeitos que testes e docs não pegavam: cliente nenhum desenhado e "malha" sem grade.
+- A classe `.cliente` estava aplicada à posição dos drones e `/pedidos` nunca era buscado — os pontos amarelos da tela eram a frota.
+- jsdom escolhido sobre extrair a lógica para um módulo: executa o script real da página, sem asset novo nem passo de build, preservando D41 (D45).
+- A dívida do JS sem teste foi reescrita, não fechada: o comportamento passa a ser testado, mas a cobertura segue medindo a string.
+- Primeira leva nascida de validação manual da aplicação rodando — não do backlog nem de investigação de dívida.
 
 ## Metrics Snapshot (2026-07-27)
 
@@ -133,9 +143,9 @@
 | ------------------ | ------------------------------ |
 | Linguagem          | TypeScript (ESM)               |
 | Runtime            | Node.js 24 LTS (>= 20.12)      |
-| Fases              | ~12 (init + setup + planejamento + bloco 1 + ferramental + blocos 2-7 + saneamento) |
+| Fases              | ~13 (init + setup + planejamento + bloco 1 + ferramental + blocos 2-7 + saneamento + correção do dashboard) |
 | Backlog            | 8 épicos; E1-E7 concluídos; resta E8-2 (carga); ADRs em docs/DECISIONS.md |
 | API                | 5 rotas de pedido + 2 de drone + 3 de entrega + 3 de simulação + `/mapa` + `/dashboard` + `/health` |
 | Testes             | passing (~25 arquivos); cobertura total ~97%, domínio ~98% |
 | Verificação        | typecheck, lint, format, testes e build verdes no CI |
-| Git                | main com 9 PRs mergeados; `feat/bloco-7` e `chore/saneamento-dividas` commitadas, ainda não publicadas |
+| Git                | main com 12 PRs mergeados; `fix/dashboard-svg` commitada, ainda não publicada |

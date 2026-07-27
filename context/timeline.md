@@ -105,7 +105,7 @@
 
 ## Phase 10: Bloco 7 — dashboard & feedback (Jul/2026)
 
-- Branch `feat/bloco-7`, sem commit até aqui.
+- Commits: aed9286, 5bd93b1 (PRs #10 e #12).
 - Épico E6 completo: mapa legível pela API, caminho observável, dashboard web e rastreio ao cliente.
 - O caminho virou contrato público sem virar dado persistido — derivado do mesmo campo de distâncias do Bloco 6.
 - `campoDistanciasDe` extraído para que `distancia` e `caminho` não possam divergir quanto ao desvio; foi a peça que o plano não previu.
@@ -118,7 +118,7 @@
 
 ## Phase 11: Saneamento de dívidas (Jul/2026)
 
-- Commit: bfe951b, branch `chore/saneamento-dividas` sobre `feat/bloco-7`.
+- Commits: bfe951b, 96abda5 (PR #11), branch `chore/saneamento-dividas` sobre `feat/bloco-7`.
 - Três dívidas do metaspec fechadas sem mudar contrato de rota nem formato de arquivo em disco.
 - Ramo morto do plural em `rastreio.ts` removido; os 100% de branches são a prova de que era inalcançável.
 - Repositórios ganharam `emLote`: o avanço do relógio grava cada arquivo uma vez, não uma por evento (D43).
@@ -126,6 +126,7 @@
 - Adia-se só a escrita, nunca a mutação em memória — é dela que o early-return de `atualizarStatusViagem` depende.
 - Viagem de drone ausente da frota passou a falhar alto com `VIAGEM_INCONSISTENTE`, em vez de ser pulada (D44).
 - Primeira leva de trabalho nascida de investigação de dívida, não do backlog.
+- Publicação das duas branches empilhadas custou um PR extra (#12): o re-apontamento automático do GitHub não substitui mergear o filho na feature antes.
 
 ## Metrics Snapshot (2026-07-27)
 
@@ -138,4 +139,4 @@
 | API                | 5 rotas de pedido + 2 de drone + 3 de entrega + 3 de simulação + `/mapa` + `/dashboard` + `/health` |
 | Testes             | passing (~25 arquivos); cobertura total ~97%, domínio ~98% |
 | Verificação        | typecheck, lint, format, testes e build verdes no CI |
-| Git                | main com 9 PRs mergeados; `feat/bloco-7` e `chore/saneamento-dividas` commitadas, ainda não publicadas |
+| Git                | main com 12 PRs mergeados; sem branch de trabalho aberta |

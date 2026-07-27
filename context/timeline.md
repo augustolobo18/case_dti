@@ -92,7 +92,7 @@
 
 ## Phase 9: Bloco 6 — zonas de exclusão (Jul/2026)
 
-- Branch `feat/bloco-6`, sem commit.
+- Commits: 12d01b9, c28006f, c089be3 (PR #9).
 - Épico E5 completo: zonas de exclusão como células bloqueadas e distância que as contorna alimentando alcance, bateria, roteamento e tempo.
 - A distância deixou de ser fórmula O(1) e virou consulta ao `MapaCidade` — mudança conceitual, não de superfície.
 - BFS memoizado por origem escolhido sobre A* por par: os mesmos pares se repetem dentro do empacotamento, então cache vence heurística (D36).
@@ -100,6 +100,7 @@
 - `null` do mapa ganhou dois destinos: `naoAlocados` antes da filtragem, `ROTA_IMPOSSIVEL` depois dela — a assimetria vem do argumento de conectividade.
 - Distância total da simulação passou a ser acumulada das pernas percorridas, eliminando divergência com `viagens.json` gravado antes das zonas.
 - Primeiro bloco executado por subagente a partir do plano aprovado; o plano absorveu as decisões e a execução não precisou de nenhuma.
+- Duas limitações viraram histórias formais: E6-3 (expor zonas) e E6-4 (caminho observável) são pré-requisitos do dashboard, não dívida solta.
 - Detalhes: `context/walkthroughs/2026-07-27_Walkthrough_Bloco_6_Zonas_Exclusao.md`.
 
 ## Metrics Snapshot (2026-07-27)
@@ -109,8 +110,8 @@
 | Linguagem          | TypeScript (ESM)               |
 | Runtime            | Node.js 24 LTS (>= 20.12)      |
 | Fases              | ~10 (init + setup + planejamento + bloco 1 + ferramental + blocos 2-6) |
-| Backlog            | 8 épicos; E1-E5 e E7 concluídos; ADRs em docs/DECISIONS.md |
+| Backlog            | 8 épicos; E1-E5 e E7 concluídos; E6 ganhou 2 habilitadores; ADRs em docs/DECISIONS.md |
 | API                | 4 rotas de pedido + 2 de drone + 3 de entrega + 3 de simulação + `/health` |
 | Testes             | passing (~18 arquivos); cobertura total ~98%, domínio ~98,5% |
 | Verificação        | typecheck, lint, format, testes e build verdes no CI |
-| Git                | main com 8 PRs mergeados; `feat/bloco-6` com a implementação sem commit |
+| Git                | main com 9 PRs mergeados, working tree limpo; sem branch de feature aberta |

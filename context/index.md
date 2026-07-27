@@ -1,6 +1,6 @@
 # Context Index — case_dti (DroneDelivery)
 
-> Artifact map. Updated: 2026-07-27 (v1.2)
+> Artifact map. Updated: 2026-07-27 (v1.3)
 
 ## Quick Navigation
 
@@ -28,9 +28,7 @@ No artifacts.
 
 ### Plans — plans/
 
-| File                                          | Date       | Description                                  | Status |
-| --------------------------------------------- | ---------- | -------------------------------------------- | ------ |
-| `2026-07-26_Bloco_6_Zonas_Exclusao.md`        | 2026-07-26 | Plano do épico E5 — implementado; mover para `old/` no commit | implementado |
+No artifacts.
 
 ## Critical Files
 

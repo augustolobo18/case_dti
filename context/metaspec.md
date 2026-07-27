@@ -1,6 +1,6 @@
 # MetaSpec — case_dti (DroneDelivery)
 
-> Context for AI agents. Version: 1.3 | Updated: 2026-07-27
+> Context for AI agents. Version: 1.4 | Updated: 2026-07-27
 
 ## IDENTITY
 
@@ -70,9 +70,9 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 | Entry       | `src/index.ts`     | Compõe persistências → repositórios → serviço → app, reconcilia viagens órfãs e sobe o HTTP |
 | Dashboard   | `src/dashboard/`   | Relatório/visualização de métricas e mapa (vazio)    |
 
-## CURRENT STATE (v1.3 — 27/07/2026)
+## CURRENT STATE (v1.4 — 27/07/2026)
 
-- Branch `feat/bloco-6` (blocos 1-5 na `main`, PRs #2 a #8); implementação sem commit. Próximo: bloco 7 (dashboard e feedback, E6).
+- Branch `main` limpa, blocos 1-6 mergeados (PRs #2 a #9). Próximo: bloco 7 (E6-3 e E6-4 antes de E6-1/E6-2).
 - Ready:
   - Domínio base: `Coordenada` + distância Manhattan, `Pedido` e `Drone`/frota, com `ErroDominio` tipado.
   - Tipos imutáveis e funções puras; limites entram por parâmetro e `gerarId` é injetável (testes determinísticos).
@@ -95,8 +95,8 @@ Dependências apontam sempre para dentro: só `src/index.ts` escolhe implementa�
 - Technical debt (ordem do roadmap — `docs/BACKLOG.md`):
   - Blocos 7-8: dashboard e feedback (E6), simulação de carga (E8-2).
   - Zona nova não invalida viagem já planejada; a simulação recomputa as pernas e pode falhar com `BATERIA_INSUFICIENTE`.
-  - O caminho que contorna a zona não é observável: a viagem guarda paradas e distância, nunca as células do desvio (bloqueia o mapa do E6).
-  - Zonas não são expostas por rota nenhuma — o cliente do dashboard não tem como desenhá-las.
+  - O caminho que contorna a zona não é observável: a viagem guarda paradas e distância, nunca as células do desvio (E6-4; exige ADR do caminho canônico).
+  - Zonas não são expostas por rota nenhuma — o cliente do dashboard não tem como desenhá-las (E6-3).
   - Memo do `MapaCidade` cresce sem limite: uma entrada por origem consultada, cada uma de até `(cidadeTamanho+1)²` células (E8-2).
   - Evento `carga_iniciada` carrega o instante em que o carregamento **termina** — nome e timestamp discordam.
   - Cada mudança de status de viagem regrava `viagens.json` inteiro: O(n²) de I/O ao avançar o relógio (E8-2).

@@ -50,11 +50,16 @@ export function criarRotasEntregas(dependencias: DependenciasEntregas): Router {
 
       if (resultado.viagens.length > 0) {
         viagens.substituirTodas([...viagens.listar(), ...resultado.viagens]);
-      }
 
-      // Recomputa a linha do tempo e zera o relógio (D13/D33): a simulação
-      // reflete só as viagens ainda não concluídas.
-      simulacao.recomputar();
+        // Recomputa a linha do tempo e zera o relógio (D13/D33): a simulação
+        // reflete só as viagens ainda não concluídas.
+        //
+        // Só quando algo foi de fato alocado. Recomputar numa rodada vazia
+        // rearmaria a linha do tempo de viagens já executadas com o relógio em
+        // zero, e o avanço seguinte tentaria redespachar pedido já `entregue` —
+        // travando a simulação sem volta (D46).
+        simulacao.recomputar();
+      }
 
       res.status(201).json({
         viagens: resultado.viagens.map((viagem) => paraRespostaViagem(viagem)),

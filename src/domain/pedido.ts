@@ -126,6 +126,30 @@ export function alocarPedido(pedido: Pedido): Pedido {
  * viagem órfã no boot). Só é permitido reverter pedido `alocado`; qualquer
  * outro status lança `ALOCACAO_NAO_PERMITIDA`. Função pura, não muta a entrada.
  */
+/**
+ * Devolve um pedido de uma viagem em replanejamento ao status `alocado` (D46).
+ *
+ * Existe porque `POST /entregas/alocar` recomputa a linha do tempo do zero
+ * (D33): as viagens não concluídas serão re-executadas, então o progresso que a
+ * rodada anterior aplicou aos seus pedidos precisa ser desfeito junto. Sem isso,
+ * o avanço seguinte tenta redespachar pedido já `entregue` e trava a simulação.
+ *
+ * Aceita `alocado` (idempotente), `em_voo` e `entregue` — os três estados em que
+ * um pedido de viagem não concluída pode estar. Recusa `pendente` (não pertence
+ * a viagem alguma) e `cancelado` (cancelamento é final, nunca é reaproveitado).
+ */
+export function reiniciarParaAlocado(pedido: Pedido): Pedido {
+  if (pedido.status !== 'alocado' && pedido.status !== 'em_voo' && pedido.status !== 'entregue') {
+    throw new ErroDominio(
+      'ALOCACAO_NAO_PERMITIDA',
+      `Pedido ${pedido.id} não pode ser reiniciado: está com status "${pedido.status}", ` +
+        'só é permitido reiniciar pedido "alocado", "em_voo" ou "entregue".',
+    );
+  }
+
+  return comStatus(pedido, 'alocado');
+}
+
 export function reverterParaPendente(pedido: Pedido): Pedido {
   if (pedido.status !== 'alocado') {
     throw new ErroDominio(

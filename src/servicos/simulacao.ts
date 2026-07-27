@@ -63,7 +63,63 @@ export function criarServicoSimulacao(opcoes: OpcoesServicoSimulacao): ServicoSi
   let instante = 0;
   let indiceProximoEvento = 0;
 
+  /**
+   * Desfaz o progresso que a rodada anterior aplicou às viagens ainda não
+   * concluídas (D46). `recomputar` reconstrói a linha do tempo do zero e zera o
+   * relógio (D33); sem zerar o mundo junto, os eventos dessas viagens seriam
+   * reaplicados sobre um estado já avançado — despachar pedido já `entregue`
+   * lança e trava a simulação sem volta.
+   *
+   * Viagem `concluida` é preservada: ela não entra na nova linha do tempo (D35),
+   * então seus pedidos e seu status permanecem como estão.
+   */
+  function reiniciarViagensNaoConcluidas(): void {
+    const naoConcluidas = viagens.listar().filter((viagem) => viagem.status !== 'concluida');
+    if (naoConcluidas.length === 0) {
+      return;
+    }
+
+    pedidos.emLote(() =>
+      viagens.emLote(() => {
+        const ids = naoConcluidas.flatMap((viagem) => viagem.pedidoIds);
+        // Só `em_voo` e `entregue` precisam voltar: `alocado` já é o alvo,
+        // `cancelado` é final e `pendente` é viagem incoerente do boot, que a
+        // reconciliação (D27) trata — nenhum dos três deve fazer isto lançar.
+        const reiniciaveis = ids.filter((id) => {
+          const status = pedidos.buscarPorId(id).status;
+          return status === 'em_voo' || status === 'entregue';
+        });
+        if (reiniciaveis.length > 0) {
+          pedidos.reiniciarParaAlocado(reiniciaveis);
+        }
+
+        const porId = new Set(naoConcluidas.map((viagem) => viagem.id));
+        viagens.substituirTodas(
+          viagens
+            .listar()
+            .map((viagem) =>
+              porId.has(viagem.id) ? comStatusViagem(viagem, 'planejada') : viagem,
+            ),
+        );
+      }),
+    );
+
+    // A frota volta ao estado inicial da simulação: toda viagem começa e termina
+    // na base, então esse é o único estado consistente com um relógio em zero.
+    for (const drone of frota.listar()) {
+      frota.atualizar({
+        ...drone,
+        estado: 'idle',
+        posicao: base,
+        cargaKg: 0,
+        bateriaQuadras: drone.alcanceQuadras,
+      });
+    }
+  }
+
   function recomputar(): LinhaDoTempo {
+    reiniciarViagensNaoConcluidas();
+
     linha = simular({
       viagens: viagens.listar(),
       pedidos: pedidos.listar(),

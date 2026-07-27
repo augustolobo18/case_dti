@@ -5,6 +5,7 @@ import {
   despacharPedido,
   entregarPedido,
   reverterParaPendente as reverterPedidoParaPendente,
+  reiniciarParaAlocado as reiniciarPedidoParaAlocado,
   type Pedido,
   type Prioridade,
   type StatusPedido,
@@ -25,6 +26,8 @@ export type RepositorioPedidos = {
   cancelar(id: string): Pedido;
   marcarComoAlocados(ids: readonly string[]): Pedido[];
   reverterParaPendente(ids: readonly string[]): Pedido[];
+  /** Devolve pedidos de viagem em replanejamento ao status `alocado` (D46). */
+  reiniciarParaAlocado(ids: readonly string[]): Pedido[];
   despachar(ids: readonly string[]): Pedido[];
   entregar(ids: readonly string[]): Pedido[];
   /**
@@ -128,6 +131,10 @@ export function criarRepositorioPedidos(persistencia: PersistenciaPedidos): Repo
 
     reverterParaPendente(ids: readonly string[]): Pedido[] {
       return mutarEmLote(ids, reverterPedidoParaPendente);
+    },
+
+    reiniciarParaAlocado(ids: readonly string[]): Pedido[] {
+      return mutarEmLote(ids, reiniciarPedidoParaAlocado);
     },
 
     despachar(ids: readonly string[]): Pedido[] {

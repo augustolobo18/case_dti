@@ -68,6 +68,27 @@ export function paginaDashboard(): string {
     display: inline-block;
   }
   #status { font-size: 0.85rem; color: #666; margin-left: 8px; }
+  .bloco {
+    background: #fff;
+    border-radius: 8px;
+    padding: 12px 16px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+  }
+  .bloco h2 { font-size: 1rem; margin: 0 0 12px; }
+  #form-pedido { display: flex; gap: 8px; align-items: flex-end; flex-wrap: wrap; }
+  #form-pedido .campo { display: flex; flex-direction: column; gap: 4px; }
+  #form-pedido label { font-size: 0.75rem; color: #666; text-transform: uppercase; }
+  select { padding: 7px 8px; border-radius: 6px; border: 1px solid #ccc; }
+  table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid #eee; }
+  th { font-size: 0.75rem; color: #666; text-transform: uppercase; }
+  .botao-cancelar {
+    background: #e05555;
+    padding: 4px 10px;
+    font-size: 0.8rem;
+  }
+  .botao-cancelar:hover { background: #c23f3f; }
   svg { display: block; }
   .grade { stroke: #e2e2e2; stroke-width: 0.02; }
   .rotulo-eixo { font-size: 0.3px; fill: #999; }
@@ -121,6 +142,43 @@ export function paginaDashboard(): string {
   <input id="campo-minutos" type="number" min="0" step="1" value="10" />
   <button id="botao-avancar" type="button">Avançar relógio</button>
   <span id="status"></span>
+</section>
+
+<section class="bloco">
+  <h2>Cadastrar pedido</h2>
+  <form id="form-pedido">
+    <div class="campo">
+      <label for="campo-x">X (quadra)</label>
+      <input id="campo-x" type="number" min="0" step="1" value="0" required />
+    </div>
+    <div class="campo">
+      <label for="campo-y">Y (quadra)</label>
+      <input id="campo-y" type="number" min="0" step="1" value="0" required />
+    </div>
+    <div class="campo">
+      <label for="campo-peso">Peso (kg)</label>
+      <input id="campo-peso" type="number" min="0.1" step="0.1" value="1" required />
+    </div>
+    <div class="campo">
+      <label for="campo-prioridade">Prioridade</label>
+      <select id="campo-prioridade">
+        <option value="alta">Alta</option>
+        <option value="media">Média</option>
+        <option value="baixa" selected>Baixa</option>
+      </select>
+    </div>
+    <button type="submit">Cadastrar pedido</button>
+  </form>
+</section>
+
+<section class="bloco" id="lista-pedidos">
+  <h2>Pedidos</h2>
+  <table>
+    <thead>
+      <tr><th>Destino</th><th>Peso</th><th>Prioridade</th><th>Status</th><th></th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
 </section>
 
 <section id="mapa-container">
@@ -352,8 +410,97 @@ export function paginaDashboard(): string {
       var viagens = resultados[3];
       var pedidos = resultados[4];
       atualizarMetricas(simulacao);
+      listarPedidos(pedidos);
       desenharMapa(mapaResposta, pedidos, drones, viagens);
     });
+  }
+
+  /**
+   * Renderiza a tabela de pedidos. Todo texto entra por textContent — nenhum
+   * dado da API é interpolado como HTML.
+   */
+  function listarPedidos(pedidos) {
+    var corpo = document.querySelector("#lista-pedidos tbody");
+    if (!corpo) {
+      return;
+    }
+    while (corpo.firstChild) {
+      corpo.removeChild(corpo.firstChild);
+    }
+
+    for (var i = 0; i < pedidos.length; i += 1) {
+      var pedido = pedidos[i];
+      var linha = document.createElement("tr");
+
+      var destino = pedido.destino || { x: 0, y: 0 };
+      linha.appendChild(celula("(" + destino.x + ", " + destino.y + ")"));
+      linha.appendChild(celula(String(pedido.pesoKg) + " kg"));
+      linha.appendChild(celula(String(pedido.prioridade)));
+      linha.appendChild(celula(String(pedido.status)));
+
+      var acoes = document.createElement("td");
+      // Cancelar só é permitido a partir de "pendente" — o botão reflete a
+      // regra de negócio em vez de deixar a API recusar depois do clique.
+      if (pedido.status === "pendente") {
+        var botao = document.createElement("button");
+        botao.type = "button";
+        botao.className = "botao-cancelar";
+        botao.setAttribute("data-pedido-id", pedido.id);
+        botao.textContent = "Cancelar";
+        botao.addEventListener("click", function (evento) {
+          aoClicarCancelar(evento.target.getAttribute("data-pedido-id"));
+        });
+        acoes.appendChild(botao);
+      }
+      linha.appendChild(acoes);
+
+      corpo.appendChild(linha);
+    }
+  }
+
+  function celula(texto) {
+    var td = document.createElement("td");
+    td.textContent = texto;
+    return td;
+  }
+
+  function aoEnviarCadastro(evento) {
+    evento.preventDefault();
+    var x = Number(valorDoCampo("campo-x"));
+    var y = Number(valorDoCampo("campo-y"));
+    var pesoKg = Number(valorDoCampo("campo-peso"));
+    var prioridade = valorDoCampo("campo-prioridade");
+
+    definirStatus("Cadastrando…");
+    buscarJson("/pedidos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ x: x, y: y, pesoKg: pesoKg, prioridade: prioridade }),
+    })
+      .then(function () {
+        definirStatus("Pedido cadastrado.");
+        return carregarTudo();
+      })
+      .catch(function (erro) {
+        definirStatus("Erro: " + erro.message);
+      });
+  }
+
+  function aoClicarCancelar(pedidoId) {
+    definirStatus("Cancelando…");
+    buscarJson("/pedidos/" + pedidoId + "/cancelar", { method: "POST" })
+      .then(function () {
+        definirStatus("Pedido cancelado.");
+        return carregarTudo();
+      })
+      .catch(function (erro) {
+        definirStatus("Erro: " + erro.message);
+      });
+  }
+
+  function valorDoCampo(id) {
+    var campo = document.getElementById(id);
+    return campo ? campo.value : "";
   }
 
   function aoClicarAlocar() {
@@ -394,6 +541,10 @@ export function paginaDashboard(): string {
     }
     if (botaoAvancar) {
       botaoAvancar.addEventListener("click", aoClicarAvancar);
+    }
+    var formPedido = document.getElementById("form-pedido");
+    if (formPedido) {
+      formPedido.addEventListener("submit", aoEnviarCadastro);
     }
     carregarTudo().catch(function (erro) {
       definirStatus("Erro: " + erro.message);

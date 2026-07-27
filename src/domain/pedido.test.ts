@@ -8,6 +8,7 @@ import {
   reverterParaPendente,
   despacharPedido,
   entregarPedido,
+  reiniciarParaAlocado,
   type LimitesPedido,
 } from './pedido.js';
 
@@ -315,4 +316,40 @@ describe('entregarPedido', () => {
       }
     },
   );
+});
+
+describe('reiniciarParaAlocado', () => {
+  const novo = () =>
+    criarPedido(
+      { x: 1, y: 2, pesoKg: 3, prioridade: 'alta' },
+      { limites: LIMITES, gerarId: gerarIdFixo },
+    );
+
+  it('volta pedido em_voo para alocado', () => {
+    const emVoo = despacharPedido(alocarPedido(novo()));
+
+    expect(reiniciarParaAlocado(emVoo).status).toBe('alocado');
+  });
+
+  it('volta pedido entregue para alocado', () => {
+    const entregue = entregarPedido(despacharPedido(alocarPedido(novo())));
+
+    expect(reiniciarParaAlocado(entregue).status).toBe('alocado');
+  });
+
+  it('e idempotente para pedido ja alocado', () => {
+    const alocado = alocarPedido(novo());
+
+    expect(reiniciarParaAlocado(alocado).status).toBe('alocado');
+  });
+
+  it('recusa pedido cancelado: cancelamento e final', () => {
+    const cancelado = cancelarPedido(novo());
+
+    expect(() => reiniciarParaAlocado(cancelado)).toThrow(ErroDominio);
+  });
+
+  it('recusa pedido pendente: nao pertence a viagem alguma', () => {
+    expect(() => reiniciarParaAlocado(novo())).toThrow(ErroDominio);
+  });
 });

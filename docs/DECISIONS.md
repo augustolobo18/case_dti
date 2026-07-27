@@ -630,3 +630,30 @@ Cada decisão registra o **contexto**, a **escolha** e o **porquê** (incluindo 
   maioria do domínio é propositalmente Node puro); testar geometria renderizada em pixels ou
   `getBBox` (jsdom não implementa layout de SVG — o teste ficaria frágil ou simplesmente não
   funcionaria, ver Rollback & Risks do plano de correção).
+
+## D46 — Replanejar zera o mundo junto com o relógio ✅
+
+- **Contexto:** `POST /entregas/alocar` chamava `simulacao.recomputar()` incondicionalmente.
+  `recomputar` reconstrói a linha do tempo do zero e zera o relógio (D33), mas não desfazia os
+  efeitos que a rodada anterior já havia aplicado aos repositórios. As viagens não concluídas
+  voltavam para a linha do tempo com o relógio em zero, e o avanço seguinte tentava redespachar
+  pedido já `entregue` — `ENTREGA_NAO_PERMITIDA` a cada avanço, **travando a simulação sem volta**.
+  Dois caminhos chegavam lá pela interface: clicar "Alocar pedidos" sem nenhum pendente, e
+  cadastrar um pedido no meio de uma rodada e alocar. D33 registrava o reset do relógio como
+  limitação conhecida, mas descrevia o sintoma, não a gravidade.
+- **Escolha:** duas guardas complementares. (1) `alocar` só chama `recomputar` quando de fato
+  criou viagem — rodada vazia não tem por que mexer no relógio. (2) `recomputar` passou a
+  reiniciar o mundo antes de simular: pedidos de viagens não concluídas voltam a `alocado`
+  (`reiniciarParaAlocado`, transição nova no domínio), essas viagens voltam a `planejada` e a
+  frota volta à base, `idle` e com bateria cheia.
+- **Porquê:** um relógio em zero e um mundo no minuto 14 são estados incompatíveis; a correção é
+  torná-los consistentes, não tolerar a inconsistência. Zerar a frota é seguro porque toda viagem
+  começa e termina na base — é o único estado coerente com o instante zero. Viagem `concluida` é
+  preservada: ela não entra na nova linha do tempo (D35), então seus pedidos seguem `entregue`.
+- **Alternativas descartadas:** tornar a aplicação de eventos idempotente (violaria a regra de que
+  transição inválida é erro e não no-op, escondendo bugs futuros); agendar as viagens novas a
+  partir do instante corrente em vez de zerar (é o modelo certo a longo prazo, mas exige o motor
+  aceitar deslocamento de início — mudança grande, fora da janela desta correção).
+- **Limitação:** replanejar continua sendo um recomeço. Quem alocar no meio de uma rodada vê as
+  entregas já feitas daquelas viagens serem refeitas do zero — correto e previsível, mas não é
+  simulação incremental.

@@ -153,7 +153,17 @@ describe('simular — sequência exata de eventos (D14)', () => {
       makespanMin: 28,
       tempoMedioEntregaMin: 14,
       tempoPorPedido: [{ pedidoId: pedido.id, instanteEntregaMin: 14 }],
-      porDrone: [{ droneId: 'drone-1', viagens: 1, distanciaQuadras: 14, tempoOcupadoMin: 28 }],
+      porDrone: [
+        {
+          droneId: 'drone-1',
+          viagens: 1,
+          distanciaQuadras: 14,
+          tempoOcupadoMin: 28,
+          entregas: 1,
+          eficiencia: 1 / 14,
+        },
+      ],
+      droneMaisEficiente: 'drone-1',
     });
   });
 });
@@ -463,7 +473,107 @@ describe('simular — viagem já concluída é ignorada', () => {
       tempoMedioEntregaMin: 0,
       tempoPorPedido: [],
       porDrone: [],
+      droneMaisEficiente: null,
     });
+  });
+});
+
+describe('simular — métrica de eficiência (D19)', () => {
+  it('cada drone traz entregas e eficiencia = entregas / distanciaQuadras', () => {
+    const p1 = novoPedido({ x: 1, y: 0, pesoKg: 1 });
+    const p2 = novoPedido({ x: 10, y: 0, pesoKg: 1 });
+    const viagem1 = novaViagem('drone-1', [p1]);
+    const viagem2 = novaViagem('drone-2', [p2]);
+    const drone1 = novoDrone('drone-1');
+    const drone2 = novoDrone('drone-2');
+
+    const resultado = simular({
+      viagens: [viagem1, viagem2],
+      pedidos: [p1, p2],
+      drones: [drone1, drone2],
+      base: BASE,
+      tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
+    });
+
+    const metricasDrone1 = resultado.metricas.porDrone.find((m) => m.droneId === 'drone-1')!;
+    expect(metricasDrone1.entregas).toBe(1);
+    expect(metricasDrone1.eficiencia).toBe(1 / metricasDrone1.distanciaQuadras);
+  });
+
+  it('droneMaisEficiente é o de maior entregas/distancia; empate resolve por menor droneId', () => {
+    const p1 = novoPedido({ x: 1, y: 0, pesoKg: 1 });
+    const p2 = novoPedido({ x: 1, y: 0, pesoKg: 1 });
+    const viagem1 = novaViagem('drone-2', [p1]);
+    const viagem2 = novaViagem('drone-1', [p2]);
+    const drone1 = novoDrone('drone-1');
+    const drone2 = novoDrone('drone-2');
+
+    const resultado = simular({
+      viagens: [viagem1, viagem2],
+      pedidos: [p1, p2],
+      drones: [drone1, drone2],
+      base: BASE,
+      tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
+    });
+
+    // Ambos os drones têm a mesma eficiência (mesma distância, 1 entrega
+    // cada) — o empate deve resolver por menor droneId ("drone-1").
+    expect(resultado.metricas.droneMaisEficiente).toBe('drone-1');
+  });
+
+  it('sem viagens, droneMaisEficiente é null', () => {
+    const resultado = simular({
+      viagens: [],
+      pedidos: [],
+      drones: [novoDrone('drone-1')],
+      base: BASE,
+      tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
+    });
+
+    expect(resultado.metricas.droneMaisEficiente).toBeNull();
+  });
+
+  it('distância 0 não produz Infinity nem NaN na eficiência', () => {
+    // Pedido no próprio ponto da base: distância percorrida é 0.
+    const pedido = novoPedido({ x: 0, y: 0, pesoKg: 1 });
+    const viagem = novaViagem('drone-1', [pedido]);
+    const drone = novoDrone('drone-1');
+
+    const resultado = simular({
+      viagens: [viagem],
+      pedidos: [pedido],
+      drones: [drone],
+      base: BASE,
+      tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
+    });
+
+    const metricasDrone = resultado.metricas.porDrone[0]!;
+    expect(metricasDrone.distanciaQuadras).toBe(0);
+    expect(Number.isFinite(metricasDrone.eficiencia)).toBe(true);
+    expect(Number.isNaN(metricasDrone.eficiencia)).toBe(false);
+  });
+
+  it('regressão: totalEntregas, makespanMin e tempoMedioEntregaMin não mudam de valor', () => {
+    const pedido = novoPedido({ x: 3, y: 4, pesoKg: 5 });
+    const viagem = novaViagem('drone-1', [pedido]);
+    const drone = novoDrone('drone-1', 40);
+
+    const resultado = simular({
+      viagens: [viagem],
+      pedidos: [pedido],
+      drones: [drone],
+      base: BASE,
+      tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
+    });
+
+    expect(resultado.metricas.totalEntregas).toBe(1);
+    expect(resultado.metricas.makespanMin).toBe(28);
+    expect(resultado.metricas.tempoMedioEntregaMin).toBe(14);
   });
 });
 

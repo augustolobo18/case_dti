@@ -204,3 +204,100 @@ describe('criarMapaCidade — determinismo (D13)', () => {
     expect(mapa1.distancia(a, b)).toBe(mapa2.distancia(a, b));
   });
 });
+
+describe('criarMapaCidade — caminho() (E6-4/D39)', () => {
+  it('a === b devolve [a]', () => {
+    const mapa = criarMapaCidade({ cidadeTamanho: 10, zonas: [] });
+    const a: Coordenada = { x: 3, y: 3 };
+
+    expect(mapa.caminho(a, a)).toEqual([a]);
+  });
+
+  it('destino bloqueado devolve null (mesma condição de distancia)', () => {
+    const zonas: ZonaExclusao[] = [{ de: { x: 3, y: 3 }, ate: { x: 3, y: 3 } }];
+    const mapa = criarMapaCidade({ cidadeTamanho: 10, zonas });
+
+    expect(mapa.caminho({ x: 0, y: 0 }, { x: 3, y: 3 })).toBeNull();
+  });
+
+  it('destino cercado devolve null (mesma condição de distancia)', () => {
+    const zonas: ZonaExclusao[] = [
+      { de: { x: 1, y: 1 }, ate: { x: 3, y: 1 } },
+      { de: { x: 1, y: 3 }, ate: { x: 3, y: 3 } },
+      { de: { x: 1, y: 1 }, ate: { x: 1, y: 3 } },
+      { de: { x: 3, y: 1 }, ate: { x: 3, y: 3 } },
+    ];
+    const mapa = criarMapaCidade({ cidadeTamanho: 10, zonas });
+
+    expect(mapa.caminho({ x: 0, y: 0 }, { x: 2, y: 2 })).toBeNull();
+  });
+
+  it('sem zonas: trajeto Manhattan mínimo — comprimento, adjacência e sem repetição', () => {
+    const mapa = criarMapaCidade({ cidadeTamanho: 20, zonas: [] });
+    const a: Coordenada = { x: 0, y: 0 };
+    const b: Coordenada = { x: 3, y: 4 };
+
+    const caminho = mapa.caminho(a, b);
+
+    expect(caminho).not.toBeNull();
+    const passos = caminho as Coordenada[];
+    expect(passos).toHaveLength((mapa.distancia(a, b) as number) + 1);
+    expect(passos[0]).toEqual(a);
+    expect(passos.at(-1)).toEqual(b);
+
+    const vistos = new Set<string>();
+    for (let i = 0; i < passos.length; i += 1) {
+      const chave = `${passos[i]!.x},${passos[i]!.y}`;
+      expect(vistos.has(chave)).toBe(false);
+      vistos.add(chave);
+      if (i > 0) {
+        const anterior = passos[i - 1]!;
+        const atual = passos[i]!;
+        expect(distanciaManhattan(anterior, atual)).toBe(1);
+      }
+    }
+  });
+
+  it('com zona no meio: nenhuma célula do caminho está bloqueada, e comprimento bate com distancia+1', () => {
+    const zonas: ZonaExclusao[] = [{ de: { x: 3, y: 0 }, ate: { x: 3, y: 6 } }];
+    const mapa = criarMapaCidade({ cidadeTamanho: 8, zonas });
+    const a: Coordenada = { x: 0, y: 4 };
+    const b: Coordenada = { x: 6, y: 4 };
+
+    const caminho = mapa.caminho(a, b);
+
+    expect(caminho).not.toBeNull();
+    const passos = caminho as Coordenada[];
+    expect(passos).toHaveLength((mapa.distancia(a, b) as number) + 1);
+    for (const passo of passos) {
+      expect(mapa.bloqueada(passo)).toBe(false);
+    }
+  });
+
+  it('determinismo: duas chamadas iguais e dois mapas da mesma config produzem o mesmo array', () => {
+    const zonas: ZonaExclusao[] = [{ de: { x: 3, y: 0 }, ate: { x: 3, y: 6 } }];
+    const mapa1 = criarMapaCidade({ cidadeTamanho: 8, zonas });
+    const mapa2 = criarMapaCidade({ cidadeTamanho: 8, zonas });
+    const a: Coordenada = { x: 0, y: 4 };
+    const b: Coordenada = { x: 6, y: 4 };
+
+    expect(mapa1.caminho(a, b)).toEqual(mapa1.caminho(a, b));
+    expect(mapa1.caminho(a, b)).toEqual(mapa2.caminho(a, b));
+  });
+
+  it('desempate exato: entre caminhos mínimos, elege o de menor x, depois menor y (D12)', () => {
+    const mapa = criarMapaCidade({ cidadeTamanho: 10, zonas: [] });
+    const a: Coordenada = { x: 0, y: 0 };
+    const b: Coordenada = { x: 2, y: 2 };
+
+    const caminho = mapa.caminho(a, b);
+
+    expect(caminho).toEqual([
+      { x: 0, y: 0 },
+      { x: 0, y: 1 },
+      { x: 0, y: 2 },
+      { x: 1, y: 2 },
+      { x: 2, y: 2 },
+    ]);
+  });
+});

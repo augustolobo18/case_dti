@@ -467,3 +467,75 @@ Cada decisão registra o **contexto**, a **escolha** e o **porquê** (incluindo 
   duplicaria a checagem de alcance/rota em duas camadas e não cobriria zona alterada após o
   cadastro); silenciar o pedido sem reportar (contraria D29 e o padrão de "falhar visível" do
   domínio).
+
+## D39 — Caminho canônico: backtracking sobre o campo de distâncias, desempate por menor `x`, depois menor `y` ✅
+
+- **Contexto:** o Bloco 6 deixou o caminho percorrido não observável — a `Viagem` guarda paradas e
+  distância total, nunca as células do desvio em volta de uma zona (E6-4). Entre vários caminhos de
+  mesmo comprimento mínimo, é preciso um critério explícito e determinístico para eleger um só.
+- **Escolha:** `MapaCidade.caminho(a, b)` faz backtracking a partir de `b`: a cada passo, entre os
+  vizinhos com distância `d − 1` até `a`, escolhe o de menor `x`, depois menor `y` (`compararPorXY`,
+  o mesmo comparador de D12), até chegar em `a`; inverte a lista ao final.
+- **Porquê:** zero memória extra sobre o campo de distâncias que o BFS já mantém — não precisa
+  guardar predecessores durante a busca, só reconsultar o mesmo campo no sentido inverso. Reusa
+  literalmente o desempate já canônico do roteamento (D12) em vez de inventar um segundo critério
+  de desempate para o mesmo domínio, e o resultado é sempre "o que a regra explícita produz", nunca
+  "o que a ordem de inserção na fila do BFS calhou de gerar" — que dependeria da ordem de
+  `DELTAS_VIZINHOS` e não seria auto-documentado.
+- **Alternativas descartadas:** guardar o predecessor de cada célula durante o próprio BFS (evita o
+  backtracking, mas duplica estado por origem memoizada, agravando a dívida já registrada do memo
+  sem limite, E8-2); eleger o caminho por ordem de descoberta do BFS (implícito na fila, muda se a
+  ordem de `DELTAS_VIZINHOS` mudar — não é uma regra, é um acidente de implementação).
+
+## D40 — Caminho exposto como opt-in em `GET /entregas/rota?caminho=true` ✅
+
+- **Contexto:** o payload de `GET /entregas/rota` já é consumido sem paginação (E8-2 é dívida
+  conhecida); adicionar o caminho por padrão multiplicaria o tamanho da resposta para todo
+  consumidor por causa de um único caso de uso (o dashboard).
+- **Escolha:** o caminho só entra na resposta quando `?caminho=true` é passado explicitamente; o
+  apresentador de viagem ganha um segundo parâmetro opcional `{ mapa }` — sem ele, o payload é
+  byte a byte o de antes do E6-4.
+- **Porquê:** `GET /simulacao/eventos` e `GET /entregas/rota` já são as rotas de maior volume do
+  sistema; embutir o caminho por padrão pioraria a rota mais consultada para beneficiar uma tela só.
+  Opt-in é a forma mais simples de dar o dado a quem precisa sem penalizar quem não precisa.
+- **Alternativas descartadas:** sempre incluir o caminho na resposta (simples, mas infla o payload
+  padrão, violando a constraint de compatibilidade do payload de hoje); expor o caminho em uma rota
+  própria por viagem (mais RESTful, mas exigiria N requisições do dashboard para desenhar N rotas,
+  em vez de uma só chamada com o parâmetro).
+
+## D41 — Página do dashboard como módulo TS que exporta o HTML como template string ✅
+
+- **Contexto:** o dashboard (E6-1/D18) precisa ser servido pelo backend; `npm run build` roda
+  `tsc -p tsconfig.build.json` puro e `npm start` roda `dist/index.js` — nenhum dos dois copia
+  arquivos estáticos.
+- **Escolha:** `src/dashboard/pagina.ts` exporta `paginaDashboard(): string`, com HTML, CSS e JS
+  todos inline na mesma template string; a rota `GET /dashboard` só chama `res.type('html').send(...)`.
+- **Porquê:** um `public/index.html` exigiria um passo de cópia de asset no build (`cp -r public
+  dist/` ou equivalente), um ponto novo de falha no CI e uma dessincronia possível entre o que
+  roda em `npm run dev` (serviria direto da fonte) e o que roda em `npm start` (serviria de
+  `dist/`, só se o asset tivesse sido copiado). Como módulo TS, o HTML compila junto com o resto do
+  código e os dois comandos servem exatamente o mesmo conteúdo — verificado rodando `npm run build
+  && npm start` e conferindo a resposta de `/dashboard` a partir de `dist/`.
+- **Alternativas descartadas:** `express.static` sobre um `public/` (mais convencional, mas exige
+  copiar o diretório para `dist/` no build); renderizar via template engine (Handlebars/EJS) — peso
+  desnecessário para uma página única e estática, e mais uma dependência de runtime nova, vedada
+  pelo escopo deste bloco.
+
+## D42 — Distância do rastreio é a real do mapa, contornando zonas (atualiza o critério de aceite do E6-2) ✅
+
+- **Contexto:** o critério de aceite original do E6-2 ("a mensagem inclui a distância atual do
+  drone ao cliente em quadras") foi escrito **antes** do Bloco 6 introduzir zonas de exclusão
+  (D36/D17). Depois do Bloco 6, a distância Manhattan reta deixou de ser a distância real sempre
+  que há uma zona entre o drone e o destino.
+- **Escolha:** `montarRastreio` consulta `mapa.distancia(drone.posicao, pedido.destino)` — a mesma
+  distância que já contorna zonas em toda outra parte do sistema (alcance, bateria, roteamento,
+  tempo) — nunca `distanciaManhattan` direto.
+- **Porquê:** anunciar "a 2 quadras" para um cliente que na verdade está a 8 quadras de desvio pela
+  frente do drone seria uma mensagem enganosa, e o sistema já tem uma única fonte de verdade para
+  distância desde D36. Manter dois conceitos de distância (uma "real" para o domínio e uma
+  "aproximada" para o cliente) reintroduziria exatamente a inconsistência que D36 eliminou.
+  **Este ADR atualiza o critério de aceite do E6-2** em `docs/BACKLOG.md`, escrito antes do Bloco 6:
+  a distância citada ao cliente final passa a ser explicitamente a real, contornando zonas.
+- **Alternativas descartadas:** manter `distanciaManhattan` no rastreio por ser mais barato
+  (O(1) vs. consulta ao mapa) — o custo é irrelevante numa única consulta por requisição de
+  rastreio, bem diferente do roteamento que reconsulta a distância O(k²) vezes por inserção.

@@ -107,6 +107,7 @@ describe('GET /simulacao', () => {
         tempoMedioEntregaMin: 0,
         tempoPorPedido: [],
         porDrone: [],
+        droneMaisEficiente: null,
       },
     });
   });

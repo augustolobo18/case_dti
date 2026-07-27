@@ -50,8 +50,8 @@ capacidade, alcance e priorizando entregas conforme a prioridade.
 - [x] Zonas de exclusão aérea (obstáculos entre pontos)
 - [x] Cálculo de tempo total de entrega
 - [ ] Fila de entrega (prioridade + tempo de chegada)
-- [ ] Dashboard / relatório: entregas realizadas, tempo médio, drone mais eficiente, mapa
-- [ ] Feedback do cliente ("seu pacote está a N quadras")
+- [x] Dashboard / relatório: entregas realizadas, tempo médio, drone mais eficiente, mapa
+- [x] Feedback do cliente ("seu pacote está a N quadras")
 
 > Os itens são priorizados conforme o tempo disponível; o núcleo é entregue
 > primeiro e de forma sólida.
@@ -146,6 +146,7 @@ mudar a quantidade exige reiniciar o servidor. Ids são sequenciais e determiní
 | ------ | ------------------------ | --------------------------------------------------- | ----- | -------------------------------------------- |
 | POST   | `/entregas/alocar`       | Aloca os pedidos `pendente` em viagens (greedy)      | —     | `201` com `{ viagens, naoAlocados }`         |
 | GET    | `/entregas/rota`         | Lista as viagens já calculadas                       | —     | `200` com array (vazio se nenhuma alocação)  |
+| GET    | `/entregas/rota?caminho=true` | Idem, com o caminho (células) de cada perna, contornando zonas | — | `200` com array; `caminho` só aparece com o parâmetro (E6-4) |
 | DELETE | `/entregas/concluidas`   | Remove as viagens já `concluida`                     | —     | `200` com `{ removidas }`                    |
 
 `POST /entregas/alocar` ordena os pedidos pendentes por prioridade → distância → peso (D11),
@@ -256,6 +257,67 @@ curl -X POST http://localhost:3000/entregas/alocar
 Sem a zona, a distância da viagem seria `2 × 10 = 20` quadras (Manhattan direto); com a parede em
 `x=3, y=0..6` (numa malha `0..10`), o desvio pela borda livre (`y=7` a `y=10`) eleva o total para
 `32` quadras.
+
+### Implementados (E6 — Relatórios & Dashboard)
+
+| Método | Rota                          | Descrição                                                    | Corpo | Resposta                                       |
+| ------ | ----------------------------- | ------------------------------------------------------------- | ----- | ------------------------------------------------ |
+| GET    | `/mapa`                       | Tamanho da malha, base e zonas de exclusão configuradas       | —     | `200` com `{ cidadeTamanho, base, zonas }` (E6-3) |
+| GET    | `/pedidos/:id/rastreio`       | Status do pedido em linguagem amigável, com distância real    | —     | `200` com `{ pedidoId, status, mensagem, distanciaQuadras?, droneId? }` (E6-2) |
+| GET    | `/dashboard`                  | Página web com métricas e mapa da operação                    | —     | `200` com `text/html` (E6-1)                     |
+
+`GET /mapa` é somente leitura — zonas continuam vindo do `.env` e não são editáveis por API (D8/D37).
+
+`GET /pedidos/:id/rastreio` monta a mensagem a partir de `montarRastreio` (domínio puro): pedido
+`pendente`/`alocado`/`entregue`/`cancelado` tem mensagem própria, sem distância; pedido `em_voo`
+inclui a distância **real** do drone ao destino, em quadras, contornando zonas de exclusão — não a
+Manhattan reta (D42) — e entra na faixa "chegando" a partir de 1 quadra. Sem drone localizável ou
+sem rota calculável entre o drone e o destino, a mensagem degrada sem `distanciaQuadras` em vez de
+falhar: é leitura para o cliente final, não invariante de domínio.
+
+`GET /entregas/rota?caminho=true` (E6-4) traz, por viagem, uma perna por par consecutivo de
+`paradas`, cada uma com `de`, `ate` e `celulas` — a sequência de coordenadas que o drone realmente
+percorre entre as duas paradas, contornando zonas de exclusão. É opt-in (D40): sem o parâmetro, a
+resposta é idêntica à de antes do E6-4. O caminho é derivado do `MapaCidade` a cada chamada, nunca
+persistido (D31/D37), e é determinístico — o backtracking desempata por menor `x`, depois menor `y`
+(D39, o mesmo critério do roteamento nearest-neighbor, D12).
+
+`GET /dashboard` serve uma página HTML/CSS/JS autossuficiente (sem dependência de CDN ou host
+externo, D41): exibe o painel de métricas (entregas realizadas, tempo médio por entrega, makespan e
+drone mais eficiente, D19) e desenha o mapa em SVG a partir de `/mapa`, `/simulacao`, `/drones` e
+`/entregas/rota?caminho=true` — malha, base, zonas de exclusão e as rotas contornando-as. Os botões
+"Alocar pedidos" e "Avançar relógio" chamam `POST /entregas/alocar` e `POST /simulacao/avancar` e
+recarregam os dados. Abra `http://localhost:3000/dashboard` no navegador com o servidor de pé.
+
+**Consultar o mapa (zonas e tamanho da malha):**
+
+```bash
+curl http://localhost:3000/mapa
+```
+
+```json
+{
+  "cidadeTamanho": 10,
+  "base": { "x": 0, "y": 0 },
+  "zonas": [{ "de": { "x": 3, "y": 3 }, "ate": { "x": 5, "y": 5 } }]
+}
+```
+
+**Rastrear um pedido em voo:**
+
+```bash
+curl http://localhost:3000/pedidos/cac58500-93f0-4213-ba12-d768ec785e5c/rastreio
+```
+
+```json
+{
+  "pedidoId": "cac58500-93f0-4213-ba12-d768ec785e5c",
+  "status": "em_voo",
+  "droneId": "drone-1",
+  "distanciaQuadras": 4,
+  "mensagem": "Seu pacote está a 4 quadras de você."
+}
+```
 
 ### Exemplos
 
@@ -422,7 +484,17 @@ curl http://localhost:3000/simulacao
     "makespanMin": 28,
     "tempoMedioEntregaMin": 14,
     "tempoPorPedido": [{ "pedidoId": "cac58500-93f0-4213-ba12-d768ec785e5c", "instanteEntregaMin": 14 }],
-    "porDrone": [{ "droneId": "drone-1", "viagens": 1, "distanciaQuadras": 14, "tempoOcupadoMin": 28 }]
+    "porDrone": [
+      {
+        "droneId": "drone-1",
+        "viagens": 1,
+        "distanciaQuadras": 14,
+        "tempoOcupadoMin": 28,
+        "entregas": 1,
+        "eficiencia": 0.0714
+      }
+    ],
+    "droneMaisEficiente": "drone-1"
   }
 }
 ```

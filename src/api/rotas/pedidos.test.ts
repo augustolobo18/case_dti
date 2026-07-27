@@ -9,9 +9,10 @@ import { criarPersistenciaMemoria } from '../../infra/persistencia-pedidos.js';
 import { criarPersistenciaMemoria as criarPersistenciaMemoriaViagens } from '../../infra/persistencia-viagens.js';
 import { criarRepositorioPedidos, type RepositorioPedidos } from '../../repositorio/pedidos.js';
 import { criarRepositorioFrota, type OpcoesFrota } from '../../repositorio/frota.js';
-import { criarRepositorioViagens } from '../../repositorio/viagens.js';
-import { criarServicoSimulacao } from '../../servicos/simulacao.js';
+import { criarRepositorioViagens, type RepositorioViagens } from '../../repositorio/viagens.js';
+import { criarServicoSimulacao, type ServicoSimulacao } from '../../servicos/simulacao.js';
 import type { TemposSimulacao } from '../../domain/simulacao.js';
+import type { Rastreio } from '../../domain/rastreio.js';
 
 const LIMITES: LimitesPedido = { capacidadeKg: 10, cidadeTamanho: 10 };
 const OPCOES_FROTA: OpcoesFrota = {
@@ -42,27 +43,40 @@ function comoListaPedidos(corpo: unknown): Pedido[] {
   return corpo as Pedido[];
 }
 
+/** Tipa o corpo da resposta como `Rastreio`, evitando acesso `any`. */
+function comoRastreio(corpo: unknown): Rastreio {
+  return corpo as Rastreio;
+}
+
 let repositorio: RepositorioPedidos;
+let viagensRepo: RepositorioViagens;
+let simulacaoServico: ServicoSimulacao;
 let app: Express;
 let contador = 0;
 
 beforeEach(() => {
   repositorio = criarRepositorioPedidos(criarPersistenciaMemoria());
   const frota = criarRepositorioFrota(OPCOES_FROTA);
-  const viagens = criarRepositorioViagens({
+  viagensRepo = criarRepositorioViagens({
     persistencia: criarPersistenciaMemoriaViagens(),
     droneIds: frota.listar().map((d) => d.id),
   });
   const mapa = criarMapaCidade({ cidadeTamanho: LIMITES.cidadeTamanho, zonas: [] });
-  const simulacao = criarServicoSimulacao({
+  simulacaoServico = criarServicoSimulacao({
     pedidos: repositorio,
     frota,
-    viagens,
+    viagens: viagensRepo,
     base: OPCOES_FROTA.base,
     tempos: TEMPOS,
     mapa,
   });
-  app = criarApp({ pedidos: repositorio, frota, viagens, simulacao, mapa });
+  app = criarApp({
+    pedidos: repositorio,
+    frota,
+    viagens: viagensRepo,
+    simulacao: simulacaoServico,
+    mapa,
+  });
   contador = 0;
 });
 
@@ -210,6 +224,47 @@ describe('POST /pedidos/:id/cancelar', () => {
     const resposta = await request(app).get('/pedidos').query({ status: 'pendente' });
 
     expect(resposta.body).toEqual([]);
+  });
+});
+
+describe('GET /pedidos/:id/rastreio (E6-2)', () => {
+  it('200 para pedido pendente recém-cadastrado, com mensagem e sem distanciaQuadras', async () => {
+    const resposta1 = await request(app).post('/pedidos').send(PEDIDO_VALIDO);
+    const pedidoId = comoPedido(resposta1.body).id;
+
+    const resposta = await request(app).get(`/pedidos/${pedidoId}/rastreio`);
+
+    expect(resposta.status).toBe(200);
+    const rastreio = comoRastreio(resposta.body);
+    expect(rastreio.status).toBe('pendente');
+    expect(rastreio.mensagem.length).toBeGreaterThan(0);
+    expect(rastreio.distanciaQuadras).toBeUndefined();
+  });
+
+  it('após alocar e avançar o relógio, pedido em_voo traz droneId e distanciaQuadras', async () => {
+    const respostaCriar = await request(app).post('/pedidos').send(PEDIDO_VALIDO);
+    const pedidoId = comoPedido(respostaCriar.body).id;
+
+    await request(app).post('/entregas/alocar');
+    // Avança até logo após a decolagem (carregamento + um instante), antes da entrega.
+    const linha = simulacaoServico.linhaDoTempo();
+    const decolagem = linha.eventos.find((e) => e.tipo === 'decolagem')!;
+    simulacaoServico.avancarPara(decolagem.instanteMin);
+
+    const resposta = await request(app).get(`/pedidos/${pedidoId}/rastreio`);
+
+    expect(resposta.status).toBe(200);
+    const rastreio = comoRastreio(resposta.body);
+    expect(rastreio.status).toBe('em_voo');
+    expect(rastreio.droneId).toBeDefined();
+    expect(rastreio.distanciaQuadras).toBeDefined();
+  });
+
+  it('id inexistente devolve 404 com PEDIDO_NAO_ENCONTRADO', async () => {
+    const resposta = await request(app).get('/pedidos/id-inexistente/rastreio');
+
+    expect(resposta.status).toBe(404);
+    expect(comoErro(resposta.body).erro.codigo).toBe('PEDIDO_NAO_ENCONTRADO');
   });
 });
 

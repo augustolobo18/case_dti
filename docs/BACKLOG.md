@@ -238,7 +238,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 
 > Épico de diferencial — detalhamento mais leve; pontos imaturos marcados como "a refinar".
 
-### E6-1 — Dashboard de métricas 🔲
+### E6-1 — Dashboard de métricas ✅
 
 > **Como** Operador, **quero** um dashboard/relatório com as métricas da operação, **para**
 > avaliar os resultados das entregas de forma visual.
@@ -251,23 +251,34 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 - Depende de **E6-3** (zonas legíveis pelo cliente) e, para desenhar rotas corretas, de **E6-4**.
 - _A refinar na implementação:_ visual do mapa (grade HTML/SVG vs ASCII embutido), atualização estática vs. viva.
 
-### E6-2 — Feedback ao cliente 🔲
+> Implementada no Bloco 7: `GET /dashboard` serve `src/dashboard/pagina.ts` (HTML/CSS/SVG/JS inline,
+> ver D41), com o painel de métricas (`entregas`, `eficiencia` e `droneMaisEficiente` por drone, D19)
+> vindo de `MetricasSimulacao` (`src/domain/simulacao.ts`), e o mapa desenhado a partir de `GET /mapa`
+> (E6-3) e `GET /entregas/rota?caminho=true` (E6-4).
+
+### E6-2 — Feedback ao cliente ✅
 
 > **Como** Cliente, **quero** consultar o status do meu pacote em linguagem amigável, **para**
 > saber quando ele está chegando (ex.: "seu pacote está a 2 quadras").
 
 **Critérios de aceite:**
 - Consulta por `id` do pedido retorna uma mensagem amigável conforme o status.
-- Quando `em_voo`, a mensagem inclui a distância atual do drone ao cliente em quadras (métrica Manhattan, D16).
+- Quando `em_voo`, a mensagem inclui a distância **real** do drone ao cliente em quadras, contornando
+  zonas de exclusão — não a Manhattan reta (critério atualizado por **D42**, depois do Bloco 6).
 - Status `entregue` e `pendente`/`alocado` têm mensagens próprias e claras.
 - `id` inexistente retorna erro claro.
 - _A refinar na implementação:_ texto exato das mensagens; faixas (ex.: "chegando" quando ≤ 1 quadra).
+
+> Implementada no Bloco 7: `GET /pedidos/:id/rastreio`, casca fina sobre `montarRastreio`
+> (`src/domain/rastreio.ts`, função pura). Sem drone localizável ou sem rota calculável, a mensagem
+> degrada sem `distanciaQuadras` em vez de lançar — é leitura para o cliente final, não invariante
+> de domínio.
 
 > **Pré-requisitos técnicos do E6-1.** As duas histórias abaixo são habilitadores identificados no
 > Bloco 6: sem elas o dashboard desenha um mapa incompleto (sem zonas) ou incorreto (rotas em linha
 > reta atravessando zonas). Detalhe: `context/walkthroughs/2026-07-27_Walkthrough_Bloco_6_Zonas_Exclusao.md` §4.
 
-### E6-3 — Zonas de exclusão legíveis pela API 🔲
+### E6-3 — Zonas de exclusão legíveis pela API ✅
 
 > **Como** Operador, **quero** consultar as zonas de exclusão configuradas, **para** que o
 > dashboard consiga desenhá-las no mapa.
@@ -278,7 +289,10 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 - Somente leitura — zonas continuam vindo do `.env` e não são editáveis por API (ver D8/D37).
 - _Nota:_ o dado já está em `Dependencias.mapa`; falta apenas a rota e o apresentador.
 
-### E6-4 — Caminho percorrido observável 🔲
+> Implementada no Bloco 7: `GET /mapa` via `paraRespostaMapa` (`src/api/apresentadores/mapa.ts`),
+> casca fina sobre `Dependencias.mapa` e `config.base` — sem repositório no caminho (D37).
+
+### E6-4 — Caminho percorrido observável ✅
 
 > **Como** Operador, **quero** ver o trajeto que o drone realmente percorre entre duas paradas,
 > **para** que o mapa mostre o desvio em volta das zonas em vez de uma linha reta por cima delas.
@@ -293,6 +307,10 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
   menor `x`, depois menor `y`).
 - _A refinar na implementação:_ se o caminho entra no payload da viagem, dos eventos ou de uma rota
   própria — `GET /simulacao/eventos` já é a rota de maior volume e segue sem paginação (E8-2).
+
+> Implementada no Bloco 7: `MapaCidade.caminho(a, b)` (`src/domain/mapa.ts`) faz backtracking sobre o
+> campo de distâncias já memoizado, desempate por menor `x`, depois menor `y` (ver D39). Exposto como
+> opt-in em `GET /entregas/rota?caminho=true` (ver D40), sem crescer o payload padrão da rota.
 
 ---
 

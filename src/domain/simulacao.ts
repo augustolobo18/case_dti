@@ -42,21 +42,28 @@ export type TempoPorPedido = {
   readonly instanteEntregaMin: number;
 };
 
-/** Totais por drone: quantas viagens, distância acumulada e tempo ocupado. */
+/**
+ * Totais por drone: quantas viagens, distância acumulada, tempo ocupado,
+ * entregas concluídas e eficiência (`entregas ÷ distanciaQuadras`, D19).
+ */
 export type MetricasPorDrone = {
   readonly droneId: string;
   readonly viagens: number;
   readonly distanciaQuadras: number;
   readonly tempoOcupadoMin: number;
+  readonly entregas: number;
+  readonly eficiencia: number;
 };
 
-/** Métricas agregadas da simulação (E4-2). */
+/** Métricas agregadas da simulação (E4-2/E6-1/D19). */
 export type MetricasSimulacao = {
   readonly totalEntregas: number;
   readonly makespanMin: number;
   readonly tempoMedioEntregaMin: number;
   readonly tempoPorPedido: readonly TempoPorPedido[];
   readonly porDrone: readonly MetricasPorDrone[];
+  /** Drone de maior eficiência (entregas ÷ distância); empate por menor `droneId`; `null` sem viagens. */
+  readonly droneMaisEficiente: string | null;
 };
 
 /** Linha do tempo completa: os eventos ordenados e as métricas derivadas. */
@@ -179,6 +186,7 @@ export function simular(opcoes: OpcoesSimulacao): LinhaDoTempo {
     let sequencia = 0;
     let instanteAtual = 0;
     let distanciaTotal = 0;
+    let entregasDoDrone = 0;
     let droneEstado: Drone = {
       id: droneId,
       estado: 'idle',
@@ -237,6 +245,7 @@ export function simular(opcoes: OpcoesSimulacao): LinhaDoTempo {
           droneEstado = descarregar(droneEstado, pedido.pesoKg);
           registrar('entrega_concluida', viagem.id, pedido.id);
           tempoPorPedido.push({ pedidoId: pedido.id, instanteEntregaMin: instanteAtual });
+          entregasDoDrone += 1;
         }
 
         const ehUltimaParada = indice === paradas.length - 1;
@@ -261,6 +270,10 @@ export function simular(opcoes: OpcoesSimulacao): LinhaDoTempo {
       viagens: viagensDoDrone.length,
       distanciaQuadras: distanciaTotal,
       tempoOcupadoMin: instanteAtual,
+      entregas: entregasDoDrone,
+      // Distância 0 (drone que só entregou na própria base) não pode gerar
+      // Infinity/NaN: sem distância percorrida, a eficiência é 0.
+      eficiencia: distanciaTotal > 0 ? entregasDoDrone / distanciaTotal : 0,
     });
   }
 
@@ -279,8 +292,37 @@ export function simular(opcoes: OpcoesSimulacao): LinhaDoTempo {
         )
       : 0;
 
+  const droneMaisEficiente = elegerDroneMaisEficiente(porDrone);
+
   return {
     eventos: eventosOrdenados,
-    metricas: { totalEntregas, makespanMin, tempoMedioEntregaMin, tempoPorPedido, porDrone },
+    metricas: {
+      totalEntregas,
+      makespanMin,
+      tempoMedioEntregaMin,
+      tempoPorPedido,
+      porDrone,
+      droneMaisEficiente,
+    },
   };
+}
+
+/**
+ * Elege o drone de maior eficiência (`entregas ÷ distanciaQuadras`, D19);
+ * empate resolve por menor `droneId`. Sem nenhum drone com viagens, `null`.
+ */
+function elegerDroneMaisEficiente(porDrone: readonly MetricasPorDrone[]): string | null {
+  let eleito: MetricasPorDrone | undefined;
+
+  for (const metricas of porDrone) {
+    if (
+      !eleito ||
+      metricas.eficiencia > eleito.eficiencia ||
+      (metricas.eficiencia === eleito.eficiencia && metricas.droneId < eleito.droneId)
+    ) {
+      eleito = metricas;
+    }
+  }
+
+  return eleito?.droneId ?? null;
 }

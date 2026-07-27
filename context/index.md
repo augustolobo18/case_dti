@@ -1,6 +1,6 @@
 # Context Index — case_dti (DroneDelivery)
 
-> Artifact map. Updated: 2026-07-26 (v1.1)
+> Artifact map. Updated: 2026-07-27 (v1.2)
 
 ## Quick Navigation
 
@@ -20,7 +20,8 @@ No artifacts.
 
 | File                                          | Date       | Description                                  | Status |
 | --------------------------------------------- | ---------- | -------------------------------------------- | ------ |
-| `2026-07-26_Walkthrough_Bloco_5_Simulacao.md` | 2026-07-26 | Épico E4: estados, motor de simulação, tempo, bateria e ADRs D30–D35 | atual |
+| `2026-07-27_Walkthrough_Bloco_6_Zonas_Exclusao.md` | 2026-07-27 | Épico E5: mapa, pathfinding BFS, motivos de inviabilidade e ADRs D36–D38 | atual |
+| `2026-07-26_Walkthrough_Bloco_5_Simulacao.md` | 2026-07-26 | Épico E4: estados, motor de simulação, tempo, bateria e ADRs D30–D35 | anterior |
 | `2026-07-26_Walkthrough_Bloco_4_Alocacao.md`  | 2026-07-26 | Épico E3: viagem, greedy, roteamento e ADRs D25–D29 | anterior |
 | `2026-07-26_Walkthrough_Bloco_3_Frota.md`     | 2026-07-26 | Épico E2: frota da config, rotas de drone e ADR D24 | anterior |
 | `2026-07-25_Walkthrough_Bloco_2_Pedidos.md`   | 2026-07-25 | Épico E1 + erros padronizados: camadas, decisões e dívidas | anterior |
@@ -29,15 +30,15 @@ No artifacts.
 
 | File                                          | Date       | Description                                  | Status |
 | --------------------------------------------- | ---------- | -------------------------------------------- | ------ |
-| `2026-07-26_Bloco_5_Simulacao_Estados.md`     | 2026-07-26 | Plano do épico E4 — implementado; mover para `old/` no commit | implementado |
+| `2026-07-26_Bloco_6_Zonas_Exclusao.md`        | 2026-07-26 | Plano do épico E5 — implementado; mover para `old/` no commit | implementado |
 
 ## Critical Files
 
 ### Código
 | File                | Responsibility                                     |
 | ------------------- | -------------------------------------------------- |
-| `src/index.ts`      | Entry point; compõe persistência → repositório → app. Único lugar que escolhe implementação concreta |
-| `src/config.ts`     | Constantes: capacidade, alcance, malha, frota, base, porta, arquivo de pedidos (env) |
+| `src/index.ts`      | Entry point; compõe persistência → repositório → app. Único lugar que escolhe implementação concreta; falha se a base nascer em zona |
+| `src/config.ts`     | Constantes: capacidade, alcance, malha, frota, base, porta, arquivos e zonas de exclusão (env) |
 
 ### API
 | File                          | Responsibility                                              |
@@ -72,6 +73,7 @@ No artifacts.
 | -------------------------- | ----------------------------------------------------------- |
 | `src/domain/erros.ts`      | `ErroDominio` com código tipado; sem referência a HTTP       |
 | `src/domain/coordenada.ts` | Malha 2D, validação `0..N` e distância Manhattan             |
+| `src/domain/mapa.ts`       | `MapaCidade`: parser de zonas, células bloqueadas e distância por BFS memoizado por origem (D36–D38) |
 | `src/domain/pedido.ts`     | Tipo `Pedido`, prioridades, status e factory validante       |
 | `src/domain/drone.ts`      | Tipo `Drone`, frota homogênea, gerador de id sequencial e a tabela de transições (E4-1) |
 | `src/domain/viagem.ts`     | Tipo `Viagem`, status (D35), roteamento nearest-neighbor, guarda de invariante e reconciliação |

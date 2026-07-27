@@ -24,7 +24,10 @@ export type CodigoErroDominio =
   | 'BATERIA_INSUFICIENTE'
   | 'ENTREGA_NAO_PERMITIDA'
   | 'AVANCO_INVALIDO'
-  | 'EMPACOTAMENTO_INCONSISTENTE';
+  | 'EMPACOTAMENTO_INCONSISTENTE'
+  | 'DESTINO_BLOQUEADO'
+  | 'SEM_ROTA'
+  | 'ROTA_IMPOSSIVEL';
 
 /** Erro lançado quando uma regra do domínio é violada. */
 export class ErroDominio extends Error {

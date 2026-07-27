@@ -4,6 +4,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { criarApp } from '../server.js';
 import type { CorpoErro } from '../erros.js';
 import { criarPedido, type LimitesPedido, type Pedido } from '../../domain/pedido.js';
+import { criarMapaCidade } from '../../domain/mapa.js';
 import { criarPersistenciaMemoria as criarPersistenciaMemoriaPedidos } from '../../infra/persistencia-pedidos.js';
 import { criarPersistenciaMemoria as criarPersistenciaMemoriaViagens } from '../../infra/persistencia-viagens.js';
 import { criarRepositorioPedidos, type RepositorioPedidos } from '../../repositorio/pedidos.js';
@@ -79,14 +80,16 @@ beforeEach(() => {
     persistencia: criarPersistenciaMemoriaViagens(),
     droneIds: frota.listar().map((d) => d.id),
   });
+  const mapa = criarMapaCidade({ cidadeTamanho: LIMITES.cidadeTamanho, zonas: [] });
   simulacao = criarServicoSimulacao({
     pedidos,
     frota,
     viagens,
     base: OPCOES_FROTA.base,
     tempos: TEMPOS,
+    mapa,
   });
-  app = criarApp({ pedidos, frota, viagens, simulacao });
+  app = criarApp({ pedidos, frota, viagens, simulacao, mapa });
   contador = 0;
 });
 
@@ -179,18 +182,21 @@ describe('POST /entregas/alocar', () => {
       persistencia: criarPersistenciaMemoriaViagens(),
       droneIds: [],
     });
+    const mapaVazio = criarMapaCidade({ cidadeTamanho: LIMITES.cidadeTamanho, zonas: [] });
     const simulacaoVazia = criarServicoSimulacao({
       pedidos: pedidosVazio,
       frota: frotaVazia,
       viagens: viagensVazias,
       base: OPCOES_FROTA.base,
       tempos: TEMPOS,
+      mapa: mapaVazio,
     });
     const appSemFrota = criarApp({
       pedidos: pedidosVazio,
       frota: frotaVazia,
       viagens: viagensVazias,
       simulacao: simulacaoVazia,
+      mapa: mapaVazio,
     });
     pedidosVazio.adicionar(novoPedidoAjudante({ x: 1, y: 0, pesoKg: 1 }));
 
@@ -198,6 +204,59 @@ describe('POST /entregas/alocar', () => {
 
     expect(resposta.status).toBe(422);
     expect(comoErro(resposta.body).erro.codigo).toBe('FROTA_VAZIA');
+  });
+});
+
+describe('POST /entregas/alocar — com zonas de exclusão configuradas (E5-2)', () => {
+  it('devolve 200 com DESTINO_BLOQUEADO e SEM_ROTA em naoAlocados, sem abortar a rodada', async () => {
+    const zonaBloqueada = { de: { x: 5, y: 5 }, ate: { x: 5, y: 5 } };
+    const zonaCerca = [
+      { de: { x: 8, y: 8 }, ate: { x: 10, y: 8 } },
+      { de: { x: 8, y: 10 }, ate: { x: 10, y: 10 } },
+      { de: { x: 8, y: 8 }, ate: { x: 8, y: 10 } },
+      { de: { x: 10, y: 8 }, ate: { x: 10, y: 10 } },
+    ];
+    const mapaComZonas = criarMapaCidade({
+      cidadeTamanho: LIMITES.cidadeTamanho,
+      zonas: [zonaBloqueada, ...zonaCerca],
+    });
+    const pedidosZona = criarRepositorioPedidos(criarPersistenciaMemoriaPedidos());
+    const frotaZona = criarRepositorioFrota(OPCOES_FROTA);
+    const viagensZona = criarRepositorioViagens({
+      persistencia: criarPersistenciaMemoriaViagens(),
+      droneIds: frotaZona.listar().map((d) => d.id),
+    });
+    const simulacaoZona = criarServicoSimulacao({
+      pedidos: pedidosZona,
+      frota: frotaZona,
+      viagens: viagensZona,
+      base: OPCOES_FROTA.base,
+      tempos: TEMPOS,
+      mapa: mapaComZonas,
+    });
+    const appComZonas = criarApp({
+      pedidos: pedidosZona,
+      frota: frotaZona,
+      viagens: viagensZona,
+      simulacao: simulacaoZona,
+      mapa: mapaComZonas,
+    });
+
+    const bloqueado = pedidosZona.adicionar(novoPedidoAjudante({ x: 5, y: 5, pesoKg: 1 }));
+    const cercado = pedidosZona.adicionar(novoPedidoAjudante({ x: 9, y: 9, pesoKg: 1 }));
+    const livre = pedidosZona.adicionar(novoPedidoAjudante({ x: 1, y: 0, pesoKg: 1 }));
+
+    const resposta = await request(appComZonas).post('/entregas/alocar');
+
+    expect(resposta.status).toBe(201);
+    const corpo = comoAlocacao(resposta.body);
+    expect(corpo.naoAlocados).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ pedidoId: bloqueado.id, motivo: 'DESTINO_BLOQUEADO' }),
+        expect.objectContaining({ pedidoId: cercado.id, motivo: 'SEM_ROTA' }),
+      ]),
+    );
+    expect(corpo.viagens.some((v) => v.pedidoIds.includes(livre.id))).toBe(true);
   });
 });
 

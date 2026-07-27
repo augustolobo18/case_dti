@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { ErroDominio } from './erros.js';
 import type { Coordenada } from './coordenada.js';
+import { criarMapaCidade, type MapaCidade, type ZonaExclusao } from './mapa.js';
 import { criarPedido, type LimitesPedido, type Pedido, type Prioridade } from './pedido.js';
 import { alocarPedidos, ordenarParaAlocacao } from './alocacao.js';
 
@@ -8,6 +9,13 @@ const BASE: Coordenada = { x: 0, y: 0 };
 const LIMITES: LimitesPedido = { capacidadeKg: 1000, cidadeTamanho: 1000 };
 let contador = 0;
 const gerarIdPedido = () => `pedido-${(contador += 1)}`;
+
+/** Mapa sem zonas de exclusão — distância se comporta como Manhattan pura. */
+const MAPA_SEM_ZONAS: MapaCidade = criarMapaCidade({ cidadeTamanho: 1000, zonas: [] });
+
+function mapaComZonas(zonas: ZonaExclusao[], cidadeTamanho = 1000): MapaCidade {
+  return criarMapaCidade({ cidadeTamanho, zonas });
+}
 
 function novoPedido(
   dados: Partial<{ x: number; y: number; pesoKg: number; prioridade: string }> = {},
@@ -35,15 +43,15 @@ function criarGeradorSeed(seed: number): () => number {
   };
 }
 
-function gerarPedidosAleatorios(quantidade: number, seed: number): Pedido[] {
+function gerarPedidosAleatorios(quantidade: number, seed: number, limiteMalha = 50): Pedido[] {
   const aleatorio = criarGeradorSeed(seed);
   const prioridades: Prioridade[] = ['baixa', 'media', 'alta'];
   const pedidos: Pedido[] = [];
   for (let i = 0; i < quantidade; i += 1) {
     pedidos.push(
       novoPedido({
-        x: Math.floor(aleatorio() * 50),
-        y: Math.floor(aleatorio() * 50),
+        x: Math.floor(aleatorio() * limiteMalha),
+        y: Math.floor(aleatorio() * limiteMalha),
         pesoKg: Math.floor(aleatorio() * 9) + 1,
         prioridade: prioridades[Math.floor(aleatorio() * 3)],
       }),
@@ -58,7 +66,7 @@ describe('ordenarParaAlocacao', () => {
     const media = novoPedido({ prioridade: 'media' });
     const alta = novoPedido({ prioridade: 'alta' });
 
-    const ordenados = ordenarParaAlocacao([baixa, media, alta], BASE);
+    const ordenados = ordenarParaAlocacao([baixa, media, alta], BASE, MAPA_SEM_ZONAS);
 
     expect(ordenados.map((p) => p.id)).toEqual([alta.id, media.id, baixa.id]);
   });
@@ -67,7 +75,7 @@ describe('ordenarParaAlocacao', () => {
     const longe = novoPedido({ x: 5, y: 0, prioridade: 'alta' });
     const perto = novoPedido({ x: 1, y: 0, prioridade: 'alta' });
 
-    const ordenados = ordenarParaAlocacao([longe, perto], BASE);
+    const ordenados = ordenarParaAlocacao([longe, perto], BASE, MAPA_SEM_ZONAS);
 
     expect(ordenados.map((p) => p.id)).toEqual([perto.id, longe.id]);
   });
@@ -76,7 +84,7 @@ describe('ordenarParaAlocacao', () => {
     const leve = novoPedido({ x: 1, y: 0, pesoKg: 1, prioridade: 'alta' });
     const pesado = novoPedido({ x: 1, y: 0, pesoKg: 5, prioridade: 'alta' });
 
-    const ordenados = ordenarParaAlocacao([leve, pesado], BASE);
+    const ordenados = ordenarParaAlocacao([leve, pesado], BASE, MAPA_SEM_ZONAS);
 
     expect(ordenados.map((p) => p.id)).toEqual([pesado.id, leve.id]);
   });
@@ -86,8 +94,8 @@ describe('ordenarParaAlocacao', () => {
     const b = novoPedido({ x: 2, y: 0, pesoKg: 2, prioridade: 'media' });
     const c = novoPedido({ x: 3, y: 0, pesoKg: 3, prioridade: 'baixa' });
 
-    const ordem1 = ordenarParaAlocacao([a, b, c], BASE).map((p) => p.id);
-    const ordem2 = ordenarParaAlocacao([c, a, b], BASE).map((p) => p.id);
+    const ordem1 = ordenarParaAlocacao([a, b, c], BASE, MAPA_SEM_ZONAS).map((p) => p.id);
+    const ordem2 = ordenarParaAlocacao([c, a, b], BASE, MAPA_SEM_ZONAS).map((p) => p.id);
 
     expect(ordem1).toEqual(ordem2);
   });
@@ -98,7 +106,7 @@ describe('ordenarParaAlocacao', () => {
     const entrada = [a, b];
     const copia = [...entrada];
 
-    ordenarParaAlocacao(entrada, BASE);
+    ordenarParaAlocacao(entrada, BASE, MAPA_SEM_ZONAS);
 
     expect(entrada).toEqual(copia);
   });
@@ -115,6 +123,7 @@ describe('alocarPedidos — greedy (D9)', () => {
       base: BASE,
       capacidadeKg: 10,
       alcanceQuadras: 40,
+      mapa: MAPA_SEM_ZONAS,
       gerarId: () => 'viagem-1',
     });
 
@@ -133,6 +142,7 @@ describe('alocarPedidos — greedy (D9)', () => {
       base: BASE,
       capacidadeKg: 10,
       alcanceQuadras: 40,
+      mapa: MAPA_SEM_ZONAS,
     });
 
     expect(resultado.viagens).toHaveLength(2);
@@ -151,6 +161,7 @@ describe('alocarPedidos — greedy (D9)', () => {
       base: BASE,
       capacidadeKg: 10,
       alcanceQuadras: 40,
+      mapa: MAPA_SEM_ZONAS,
     });
 
     for (const viagem of resultado.viagens) {
@@ -169,6 +180,7 @@ describe('alocarPedidos — greedy (D9)', () => {
       base: BASE,
       capacidadeKg: 10,
       alcanceQuadras: 100,
+      mapa: MAPA_SEM_ZONAS,
     });
 
     expect(resultado.viagens).toHaveLength(1);
@@ -189,6 +201,7 @@ describe('alocarPedidos — prioridade soberana', () => {
       base: BASE,
       capacidadeKg: 10,
       alcanceQuadras: 40,
+      mapa: MAPA_SEM_ZONAS,
     });
 
     const primeiraViagem = resultado.viagens[0];
@@ -207,6 +220,7 @@ describe('alocarPedidos — inviáveis', () => {
       base: BASE,
       capacidadeKg: 10,
       alcanceQuadras: 40,
+      mapa: MAPA_SEM_ZONAS,
     });
 
     expect(resultado.naoAlocados).toEqual([
@@ -226,12 +240,61 @@ describe('alocarPedidos — inviáveis', () => {
       base: BASE,
       capacidadeKg: 10,
       alcanceQuadras: 40,
+      mapa: MAPA_SEM_ZONAS,
     });
 
     expect(resultado.naoAlocados).toEqual([
       expect.objectContaining({ pedidoId: pesadoDemais.id, motivo: 'PESO_ACIMA_CAPACIDADE' }),
     ]);
     expect(resultado.viagens.some((v) => v.pedidoIds.includes(leve.id))).toBe(true);
+  });
+
+  it('destino dentro de uma zona de exclusão sai em naoAlocados com DESTINO_BLOQUEADO', () => {
+    const mapa = mapaComZonas([{ de: { x: 3, y: 3 }, ate: { x: 3, y: 3 } }], 10);
+    const bloqueado = novoPedido({ x: 3, y: 3, pesoKg: 1 });
+    const livre = novoPedido({ x: 1, y: 0, pesoKg: 1 });
+
+    const resultado = alocarPedidos({
+      pedidos: [bloqueado, livre],
+      droneIds: ['drone-1'],
+      base: BASE,
+      capacidadeKg: 10,
+      alcanceQuadras: 40,
+      mapa,
+    });
+
+    expect(resultado.naoAlocados).toEqual([
+      expect.objectContaining({ pedidoId: bloqueado.id, motivo: 'DESTINO_BLOQUEADO' }),
+    ]);
+    expect(resultado.viagens.some((v) => v.pedidoIds.includes(livre.id))).toBe(true);
+    // As demais viagens continuam intactas mesmo com um pedido bloqueado (D29).
+    expect(resultado.viagens.every((v) => !v.pedidoIds.includes(bloqueado.id))).toBe(true);
+  });
+
+  it('destino cercado por zonas em todos os lados sai em naoAlocados com SEM_ROTA', () => {
+    const zonas: ZonaExclusao[] = [
+      { de: { x: 1, y: 1 }, ate: { x: 3, y: 1 } },
+      { de: { x: 1, y: 3 }, ate: { x: 3, y: 3 } },
+      { de: { x: 1, y: 1 }, ate: { x: 1, y: 3 } },
+      { de: { x: 3, y: 1 }, ate: { x: 3, y: 3 } },
+    ];
+    const mapa = mapaComZonas(zonas, 10);
+    const cercado = novoPedido({ x: 2, y: 2, pesoKg: 1 });
+    const livre = novoPedido({ x: 1, y: 0, pesoKg: 1 });
+
+    const resultado = alocarPedidos({
+      pedidos: [cercado, livre],
+      droneIds: ['drone-1'],
+      base: BASE,
+      capacidadeKg: 10,
+      alcanceQuadras: 40,
+      mapa,
+    });
+
+    expect(resultado.naoAlocados).toEqual([
+      expect.objectContaining({ pedidoId: cercado.id, motivo: 'SEM_ROTA' }),
+    ]);
+    expect(resultado.viagens.some((v) => v.pedidoIds.includes(livre.id))).toBe(true);
   });
 });
 
@@ -251,6 +314,7 @@ describe('alocarPedidos — round-robin', () => {
       base: BASE,
       capacidadeKg: 10,
       alcanceQuadras: 40,
+      mapa: MAPA_SEM_ZONAS,
     });
 
     expect(resultado.viagens).toHaveLength(3);
@@ -268,6 +332,7 @@ describe('alocarPedidos — round-robin', () => {
         base: BASE,
         capacidadeKg: 10,
         alcanceQuadras: 40,
+        mapa: MAPA_SEM_ZONAS,
       });
     } catch (erro) {
       expect(erro).toBeInstanceOf(ErroDominio);
@@ -289,6 +354,7 @@ describe('alocarPedidos — filtro de status', () => {
       base: BASE,
       capacidadeKg: 10,
       alcanceQuadras: 40,
+      mapa: MAPA_SEM_ZONAS,
     });
 
     const idsAlocados = resultado.viagens.flatMap((v) => v.pedidoIds);
@@ -305,6 +371,7 @@ describe('alocarPedidos — determinismo e carga', () => {
       base: BASE,
       capacidadeKg: 10,
       alcanceQuadras: 40,
+      mapa: MAPA_SEM_ZONAS,
     });
 
     expect(resultado).toEqual({ viagens: [], naoAlocados: [] });
@@ -325,6 +392,7 @@ describe('alocarPedidos — determinismo e carga', () => {
         base: BASE,
         capacidadeKg: 10,
         alcanceQuadras: 60,
+        mapa: MAPA_SEM_ZONAS,
         gerarId: criarGeradorIdViagem(),
       };
     }
@@ -342,6 +410,46 @@ describe('alocarPedidos — determinismo e carga', () => {
     const idsEmViagens = new Set(resultado1.viagens.flatMap((v) => v.pedidoIds));
     const idsNaoAlocados = new Set(resultado1.naoAlocados.map((n) => n.pedidoId));
     // Todo pedido pendente está ou alocado, ou reportado — nunca as duas coisas.
+    for (const pedido of pedidos) {
+      const emViagem = idsEmViagens.has(pedido.id);
+      const naoAlocado = idsNaoAlocados.has(pedido.id);
+      expect(emViagem !== naoAlocado).toBe(true);
+    }
+  });
+
+  it('com ~500 pedidos e zonas de exclusão, o custo continua tratável e nenhuma viagem viola os limites', () => {
+    // Malha pequena (0..50) para o cenário com zonas: mantém o pathfinding
+    // (BFS memoizado por origem) barato mesmo para várias centenas de pedidos.
+    const cidadeTamanho = 50;
+    const pedidos = gerarPedidosAleatorios(500, 7, cidadeTamanho);
+    const zonas: ZonaExclusao[] = [
+      { de: { x: 20, y: 0 }, ate: { x: 20, y: 35 } },
+      { de: { x: 35, y: 15 }, ate: { x: 35, y: 50 } },
+    ];
+    const mapa = mapaComZonas(zonas, cidadeTamanho);
+
+    function criarGeradorIdViagem(): () => string {
+      let contadorViagem = 0;
+      return () => `viagem-zona-${(contadorViagem += 1)}`;
+    }
+
+    const resultado = alocarPedidos({
+      pedidos,
+      droneIds: ['drone-1', 'drone-2', 'drone-3', 'drone-4', 'drone-5'],
+      base: BASE,
+      capacidadeKg: 10,
+      alcanceQuadras: 200,
+      mapa,
+      gerarId: criarGeradorIdViagem(),
+    });
+
+    for (const viagem of resultado.viagens) {
+      expect(viagem.cargaKg).toBeLessThanOrEqual(10);
+      expect(viagem.distanciaQuadras).toBeLessThanOrEqual(200);
+    }
+
+    const idsEmViagens = new Set(resultado.viagens.flatMap((v) => v.pedidoIds));
+    const idsNaoAlocados = new Set(resultado.naoAlocados.map((n) => n.pedidoId));
     for (const pedido of pedidos) {
       const emViagem = idsEmViagens.has(pedido.id);
       const naoAlocado = idsNaoAlocados.has(pedido.id);

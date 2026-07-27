@@ -204,7 +204,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 
 > Épico de diferencial — detalhamento mais leve; pontos imaturos marcados como "a refinar".
 
-### E5-1 — Métrica de distância na malha 🔲
+### E5-1 — Métrica de distância na malha ✅
 
 > **Como** Sistema, **quero** medir a distância entre dois pontos da malha de forma consistente,
 > **para** que alcance, roteamento e tempo usem a mesma métrica.
@@ -214,7 +214,10 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 - A mesma métrica alimenta a checagem de alcance (D10), o roteamento (D12) e o tempo (D14).
 - Base como referência para "N quadras de distância" (feedback ao cliente, E6).
 
-### E5-2 — Zonas de exclusão aérea 🔲
+> Implementada desde o Bloco 1 (`domain/coordenada.ts`); formalizada como história concluída
+> ao fechar o épico E5 no Bloco 6.
+
+### E5-2 — Zonas de exclusão aérea ✅
 
 > **Como** Operador, **quero** definir zonas de exclusão aérea na malha, **para** que os
 > drones não atravessem áreas proibidas ao entregar.
@@ -224,7 +227,10 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 - O trajeto contorna as zonas via pathfinding na grade (BFS/A* Manhattan), aumentando a distância (ver D17).
 - A distância que desvia é a usada nas checagens de alcance/bateria e tempo.
 - Cliente inalcançável (totalmente cercado por zonas) é reportado claramente, sem quebrar a alocação.
-- _A refinar na implementação:_ algoritmo exato (BFS vs A*), formato de declaração das zonas na config.
+
+> Implementada no Bloco 6: BFS memoizado por origem (`domain/mapa.ts`), zonas como retângulos em
+> `ZONAS_EXCLUSAO` (ver D36/D37); destino bloqueado ou sem rota entra em `naoAlocados` com
+> `DESTINO_BLOQUEADO`/`SEM_ROTA` (ver D38), sem abortar a alocação.
 
 ---
 

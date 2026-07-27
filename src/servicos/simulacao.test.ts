@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { ErroDominio } from '../domain/erros.js';
 import { alocarPedidos } from '../domain/alocacao.js';
+import { criarMapaCidade, type MapaCidade } from '../domain/mapa.js';
 import { criarPedido, type LimitesPedido } from '../domain/pedido.js';
 import type { TemposSimulacao } from '../domain/simulacao.js';
 import { criarPersistenciaMemoria as criarPersistenciaMemoriaPedidos } from '../infra/persistencia-pedidos.js';
@@ -18,6 +19,8 @@ const TEMPOS: TemposSimulacao = {
   entregaMin: 2,
   recargaMinPorQuadra: 0.5,
 };
+
+const MAPA_SEM_ZONAS: MapaCidade = criarMapaCidade({ cidadeTamanho: 1000, zonas: [] });
 
 let pedidos: RepositorioPedidos;
 let frota: RepositorioFrota;
@@ -56,6 +59,7 @@ function alocarEPersistir() {
     base: BASE,
     capacidadeKg: 10,
     alcanceQuadras: 40,
+    mapa: MAPA_SEM_ZONAS,
   });
   if (resultado.viagens.length > 0) {
     pedidos.marcarComoAlocados(resultado.viagens.flatMap((v) => v.pedidoIds));
@@ -66,7 +70,14 @@ function alocarEPersistir() {
 
 describe('criarServicoSimulacao', () => {
   it('sem alocação, a linha do tempo nasce zerada e o instante em 0', () => {
-    const servico = criarServicoSimulacao({ pedidos, frota, viagens, base: BASE, tempos: TEMPOS });
+    const servico = criarServicoSimulacao({
+      pedidos,
+      frota,
+      viagens,
+      base: BASE,
+      tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
+    });
 
     expect(servico.instanteAtual()).toBe(0);
     expect(servico.linhaDoTempo()).toEqual({
@@ -84,7 +95,14 @@ describe('criarServicoSimulacao', () => {
   it('recomputar monta a linha do tempo das viagens não concluídas e zera o instante', () => {
     const pedido = pedidos.adicionar(novoPedidoAjudante(3, 4, 5));
     alocarEPersistir();
-    const servico = criarServicoSimulacao({ pedidos, frota, viagens, base: BASE, tempos: TEMPOS });
+    const servico = criarServicoSimulacao({
+      pedidos,
+      frota,
+      viagens,
+      base: BASE,
+      tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
+    });
 
     const linha = servico.recomputar();
 
@@ -96,7 +114,14 @@ describe('criarServicoSimulacao', () => {
   it('avancarPara aplica só os eventos até o instante e deixa o estado intermediário coerente', () => {
     pedidos.adicionar(novoPedidoAjudante(3, 4, 5));
     alocarEPersistir();
-    const servico = criarServicoSimulacao({ pedidos, frota, viagens, base: BASE, tempos: TEMPOS });
+    const servico = criarServicoSimulacao({
+      pedidos,
+      frota,
+      viagens,
+      base: BASE,
+      tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
+    });
     servico.recomputar();
 
     // instante 5: só carga_iniciada + decolagem já ocorreram.
@@ -111,7 +136,14 @@ describe('criarServicoSimulacao', () => {
   it('avançar duas vezes não reaplica evento já aplicado', () => {
     pedidos.adicionar(novoPedidoAjudante(3, 4, 5));
     alocarEPersistir();
-    const servico = criarServicoSimulacao({ pedidos, frota, viagens, base: BASE, tempos: TEMPOS });
+    const servico = criarServicoSimulacao({
+      pedidos,
+      frota,
+      viagens,
+      base: BASE,
+      tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
+    });
     servico.recomputar();
 
     const primeiro = servico.avancarPara(5);
@@ -124,7 +156,14 @@ describe('criarServicoSimulacao', () => {
   it('avançar para instante menor que o corrente lança AVANCO_INVALIDO', () => {
     pedidos.adicionar(novoPedidoAjudante(3, 4, 5));
     alocarEPersistir();
-    const servico = criarServicoSimulacao({ pedidos, frota, viagens, base: BASE, tempos: TEMPOS });
+    const servico = criarServicoSimulacao({
+      pedidos,
+      frota,
+      viagens,
+      base: BASE,
+      tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
+    });
     servico.recomputar();
     servico.avancarPara(10);
 
@@ -140,7 +179,14 @@ describe('criarServicoSimulacao', () => {
   it('avançar além do makespan conclui tudo: pedidos entregues, viagens concluídas, drones idle na base com bateria cheia', () => {
     pedidos.adicionar(novoPedidoAjudante(3, 4, 5));
     alocarEPersistir();
-    const servico = criarServicoSimulacao({ pedidos, frota, viagens, base: BASE, tempos: TEMPOS });
+    const servico = criarServicoSimulacao({
+      pedidos,
+      frota,
+      viagens,
+      base: BASE,
+      tempos: TEMPOS,
+      mapa: MAPA_SEM_ZONAS,
+    });
     const linha = servico.recomputar();
 
     const resultado = servico.avancarPara(linha.metricas.makespanMin + 1000);

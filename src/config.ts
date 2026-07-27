@@ -1,3 +1,5 @@
+import { parsearZonasExclusao } from './domain/mapa.js';
+
 /**
  * Configurações globais do simulador.
  * Valores podem ser sobrescritos por variáveis de ambiente (ver .env.example).
@@ -41,4 +43,10 @@ export const config = {
 
   /** Duração da recarga, em minutos por quadra de bateria consumida (D15/D34). */
   recargaMinPorQuadra: Number(process.env.RECARGA_MIN_POR_QUADRA ?? 0.5),
+
+  /**
+   * Zonas de exclusão aérea: retângulos "x1,y1:x2,y2" separados por ";" (E5-2/D17).
+   * Vazia por padrão — sem obstáculos, a distância continua sendo exatamente Manhattan.
+   */
+  zonasExclusao: parsearZonasExclusao(process.env.ZONAS_EXCLUSAO ?? ''),
 } as const;

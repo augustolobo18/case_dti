@@ -414,3 +414,56 @@ Cada decisão registra o **contexto**, a **escolha** e o **porquê** (incluindo 
   (perde o histórico de operação, útil para métricas e para o dashboard, E6); só dois estados
   (`planejada`/`concluida`, sem `em_execucao`) — perderia a distinção entre "ainda não decolou" e
   "em voo", relevante para `GET /entregas/rota?status=`.
+
+## D36 — Pathfinding: BFS memoizado por origem, não A* por par ✅
+
+- **Contexto:** o Bloco 6 (E5-2) precisa de uma distância que contorne zonas de exclusão,
+  consultada repetidas vezes durante a alocação (roteamento nearest-neighbor reroteia a viagem
+  inteira a cada inserção, D9) — inclusive no teste de carga de ~500 pedidos.
+- **Escolha:** `MapaCidade.distancia(a, b)` roda uma única BFS **a partir de `a`**, cobrindo toda a
+  malha alcançável, e memoiza o resultado por origem; chamadas seguintes com a mesma origem são
+  O(1). Sem zonas de exclusão, a função nem roda BFS — devolve a fórmula Manhattan direto.
+- **Porquê:** o número de origens distintas consultadas é limitado (base + destinos dos pedidos),
+  então BFS por origem é O(P × células) no total — nunca por par de pontos, que degradaria a
+  alocação de milissegundos para minutos com centenas de pedidos. A* por par seria mais rápido
+  numa única consulta, mas não se beneficia de memoização entre chamadas repetidas com a mesma
+  origem, que é o padrão real de uso do roteamento.
+- **Alternativas descartadas:** A* calculado a cada par consultado (mais "correto" para uma única
+  consulta, mas reprocessa o mesmo caminho a cada reroteamento); pré-computar todas as distâncias
+  par-a-par no boot (O(células²), inviável para malhas grandes e desnecessário quando a maioria dos
+  pares nunca é consultada).
+
+## D37 — Zonas de exclusão como retângulos na config, derivadas e não persistidas ✅
+
+- **Contexto:** o Bloco 6 (E5-2) precisa de uma forma de declarar as zonas de exclusão; o mesmo
+  raciocínio de D24 (frota) e D31 (linha do tempo) se aplica a qualquer dado 100% derivável de uma
+  fonte de configuração mais simples.
+- **Escolha:** `ZONAS_EXCLUSAO` no `.env`, retângulos inclusivos `"x1,y1:x2,y2"` separados por `;`
+  (`parsearZonasExclusao`), validados contra a malha no boot (`criarMapaCidade`); não há endpoint de
+  API para ler ou editar zonas nem persistência própria — mudar exige reiniciar o servidor, como a
+  frota (D8).
+- **Porquê:** consistente com o padrão já estabelecido para configuração estrutural do simulador;
+  evita reabrir a discussão de reconciliar um arquivo persistido contra uma config editada, que D24
+  já descartou para a frota. A exposição de zonas para o dashboard (mapa visual) fica para o E6, que
+  já lê `config.zonasExclusao` diretamente — sem precisar de rota própria.
+- **Alternativas descartadas:** endpoint de cadastro de zonas via API (mais flexível, mas amplia a
+  superfície de validação sem necessidade no escopo do case); persistir zonas em arquivo JSON
+  próprio (duplica o mecanismo de D6/D26 para um dado que já é 100% derivado da config).
+
+## D38 — Destino inviável por zona é reportado na alocação, não rejeitado no cadastro ✅
+
+- **Contexto:** zonas de exclusão podem tornar um destino já cadastrado bloqueado ou sem rota até a
+  base — mas o pedido pode ter sido cadastrado antes de a zona existir, ou a zona pode mudar entre
+  reinícios (D37). É preciso decidir em que camada esse destino inviável é barrado.
+- **Escolha:** `POST /pedidos` continua validando só a malha (D4) e a capacidade (D5); a checagem
+  contra zonas de exclusão acontece em `separarInviaveis`, na alocação — destino dentro de uma zona
+  sai em `naoAlocados` com `DESTINO_BLOQUEADO`, e destino sem caminho até a base com `SEM_ROTA`.
+  Nenhum dos dois aborta a rodada (D29).
+- **Porquê:** o cadastro de pedido não tem acesso barato ao `MapaCidade` sem acoplar a rota de
+  pedidos à composição do mapa, e zonas podem mudar entre o cadastro e a alocação (reinício do
+  servidor com `ZONAS_EXCLUSAO` diferente). Mantém a mesma semântica que já existe para
+  `INALCANCAVEL`/`PESO_ACIMA_CAPACIDADE`: pedido inviável não é perdido, é reportado.
+- **Alternativas descartadas:** validar contra zonas já no `POST /pedidos` (rejeitaria cedo, mas
+  duplicaria a checagem de alcance/rota em duas camadas e não cobriria zona alterada após o
+  cadastro); silenciar o pedido sem reportar (contraria D29 e o padrão de "falhar visível" do
+  domínio).

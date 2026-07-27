@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { config } from '../../config.js';
 import { alocarPedidos } from '../../domain/alocacao.js';
+import type { MapaCidade } from '../../domain/mapa.js';
 import type { RepositorioPedidos } from '../../repositorio/pedidos.js';
 import type { RepositorioFrota } from '../../repositorio/frota.js';
 import type { RepositorioViagens } from '../../repositorio/viagens.js';
@@ -14,6 +15,7 @@ export type DependenciasEntregas = {
   readonly frota: RepositorioFrota;
   readonly viagens: RepositorioViagens;
   readonly simulacao: ServicoSimulacao;
+  readonly mapa: MapaCidade;
 };
 
 /**
@@ -21,7 +23,7 @@ export type DependenciasEntregas = {
  * os repositórios e o serviço de simulação recebidos por parâmetro.
  */
 export function criarRotasEntregas(dependencias: DependenciasEntregas): Router {
-  const { pedidos, frota, viagens, simulacao } = dependencias;
+  const { pedidos, frota, viagens, simulacao, mapa } = dependencias;
   const router = Router();
 
   router.post('/alocar', (_req, res, next) => {
@@ -35,6 +37,7 @@ export function criarRotasEntregas(dependencias: DependenciasEntregas): Router {
         base: config.base,
         capacidadeKg: config.droneCapacidadeKg,
         alcanceQuadras: config.droneAlcanceQuadras,
+        mapa,
       });
 
       // Grava os pedidos antes das viagens (ver risco em DECISIONS/D26): uma

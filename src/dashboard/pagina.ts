@@ -171,6 +171,16 @@ export function paginaDashboard(): string {
   </form>
 </section>
 
+<section class="bloco" id="lista-drones">
+  <h2>Frota</h2>
+  <table>
+    <thead>
+      <tr><th>Drone</th><th>Fase</th><th>Posição</th><th>Carga</th><th>Bateria</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</section>
+
 <section class="bloco" id="lista-pedidos">
   <h2>Pedidos</h2>
   <table>
@@ -410,9 +420,58 @@ export function paginaDashboard(): string {
       var viagens = resultados[3];
       var pedidos = resultados[4];
       atualizarMetricas(simulacao);
+      listarDrones(drones);
       listarPedidos(pedidos);
       desenharMapa(mapaResposta, pedidos, drones, viagens);
     });
+  }
+
+  /**
+   * Rótulo de operação para cada estado da máquina do drone. O valor cru do
+   * enum é snake_case e serve ao JSON, não à leitura na tela.
+   */
+  var FASE_DRONE = {
+    idle: "Ocioso",
+    carregando: "Carregando",
+    em_voo: "Em voo",
+    entregando: "Entregando",
+    retornando: "Retornando",
+  };
+
+  /** Renderiza a tabela da frota: fase, posição, carga e bateria por drone. */
+  function listarDrones(drones) {
+    var corpo = document.querySelector("#lista-drones tbody");
+    if (!corpo) {
+      return;
+    }
+    while (corpo.firstChild) {
+      corpo.removeChild(corpo.firstChild);
+    }
+
+    for (var i = 0; i < drones.length; i += 1) {
+      var drone = drones[i];
+      var linha = document.createElement("tr");
+      var posicao = drone.posicao || { x: 0, y: 0 };
+
+      linha.appendChild(celula(String(drone.id)));
+      // Estado desconhecido cai no valor cru em vez de sumir da tela: se a
+      // máquina de estados ganhar um estado, o dashboard mostra em vez de mentir.
+      linha.appendChild(celula(FASE_DRONE[drone.estado] || String(drone.estado)));
+      linha.appendChild(celula("(" + posicao.x + ", " + posicao.y + ")"));
+      linha.appendChild(celula(String(drone.cargaKg) + " / " + String(drone.capacidadeKg) + " kg"));
+      linha.appendChild(
+        celula(
+          String(drone.bateriaPercentual) +
+            "% (" +
+            String(drone.bateriaQuadras) +
+            " de " +
+            String(drone.alcanceQuadras) +
+            " quadras)",
+        ),
+      );
+
+      corpo.appendChild(linha);
+    }
   }
 
   /**

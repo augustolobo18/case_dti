@@ -57,6 +57,7 @@ export function criarServicoSimulacao(opcoes: OpcoesServicoSimulacao): ServicoSi
       tempoMedioEntregaMin: 0,
       tempoPorPedido: [],
       porDrone: [],
+      droneMaisEficiente: null,
     },
   };
   let instante = 0;

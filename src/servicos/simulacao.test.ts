@@ -88,6 +88,7 @@ describe('criarServicoSimulacao', () => {
         tempoMedioEntregaMin: 0,
         tempoPorPedido: [],
         porDrone: [],
+        droneMaisEficiente: null,
       },
     });
   });

@@ -4,6 +4,8 @@ import { criarRotasPedidos } from './rotas/pedidos.js';
 import { criarRotasDrones } from './rotas/drones.js';
 import { criarRotasEntregas } from './rotas/entregas.js';
 import { criarRotasSimulacao } from './rotas/simulacao.js';
+import { criarRotasMapa } from './rotas/mapa.js';
+import { criarRotasDashboard } from './rotas/dashboard.js';
 import type { RepositorioPedidos } from '../repositorio/pedidos.js';
 import type { RepositorioFrota } from '../repositorio/frota.js';
 import type { RepositorioViagens } from '../repositorio/viagens.js';
@@ -37,7 +39,15 @@ export function criarApp(dependencias: Dependencias): Express {
     res.json({ status: 'ok', servico: 'drone-delivery' });
   });
 
-  app.use('/pedidos', criarRotasPedidos(dependencias.pedidos));
+  app.use(
+    '/pedidos',
+    criarRotasPedidos({
+      pedidos: dependencias.pedidos,
+      viagens: dependencias.viagens,
+      frota: dependencias.frota,
+      mapa: dependencias.mapa,
+    }),
+  );
   app.use('/drones', criarRotasDrones(dependencias.frota));
   app.use(
     '/entregas',
@@ -50,6 +60,8 @@ export function criarApp(dependencias: Dependencias): Express {
     }),
   );
   app.use('/simulacao', criarRotasSimulacao(dependencias.simulacao));
+  app.use('/mapa', criarRotasMapa(dependencias.mapa));
+  app.use('/dashboard', criarRotasDashboard());
 
   // 404 de rota inexistente e middleware de erro sempre por último (a ordem importa no Express).
   app.use(rotaNaoEncontrada);

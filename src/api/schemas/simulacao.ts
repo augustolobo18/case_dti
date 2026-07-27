@@ -36,7 +36,13 @@ export const schemaFiltrosEventos = z.object({
     .optional(),
 });
 
-/** Valida o filtro opcional de `GET /entregas/rota` por status da viagem. */
+/**
+ * Valida o filtro opcional de `GET /entregas/rota` por status da viagem e o
+ * opt-in do caminho por perna (`?caminho=true`, D40). `z.enum(['true','false'])`
+ * — não `z.coerce.boolean()`, que trataria qualquer string não vazia (inclusive
+ * `"false"`) como `true`; o significado do valor fica a cargo da rota.
+ */
 export const schemaFiltrosViagem = z.object({
   status: z.enum(STATUS_VIAGEM).optional(),
+  caminho: z.enum(['true', 'false']).optional(),
 });

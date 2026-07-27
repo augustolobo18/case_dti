@@ -287,6 +287,79 @@ describe('GET /entregas/rota — status e filtro', () => {
   });
 });
 
+describe('GET /entregas/rota?caminho=true (E6-4/D40)', () => {
+  it('sem o parâmetro, a resposta é idêntica à de hoje (regressão)', async () => {
+    pedidos.adicionar(novoPedidoAjudante({ x: 1, y: 0, pesoKg: 3 }));
+    await request(app).post('/entregas/alocar');
+
+    const resposta = await request(app).get('/entregas/rota');
+
+    expect(resposta.status).toBe(200);
+    const [viagem] = comoListaViagens(resposta.body);
+    expect(viagem).not.toHaveProperty('caminho');
+  });
+
+  it('com caminho=true e uma zona configurada, o caminho da perna contorna a zona', async () => {
+    const zonas = [{ de: { x: 3, y: 0 }, ate: { x: 3, y: 6 } }];
+    const cidadeTamanho = 8;
+    const mapaComZonas = criarMapaCidade({ cidadeTamanho, zonas });
+    const pedidosZona = criarRepositorioPedidos(criarPersistenciaMemoriaPedidos());
+    const frotaZona = criarRepositorioFrota({ ...OPCOES_FROTA, base: { x: 0, y: 4 } });
+    const viagensZona = criarRepositorioViagens({
+      persistencia: criarPersistenciaMemoriaViagens(),
+      droneIds: frotaZona.listar().map((d) => d.id),
+    });
+    const simulacaoZona = criarServicoSimulacao({
+      pedidos: pedidosZona,
+      frota: frotaZona,
+      viagens: viagensZona,
+      base: { x: 0, y: 4 },
+      tempos: TEMPOS,
+      mapa: mapaComZonas,
+    });
+    const appComZonas = criarApp({
+      pedidos: pedidosZona,
+      frota: frotaZona,
+      viagens: viagensZona,
+      simulacao: simulacaoZona,
+      mapa: mapaComZonas,
+    });
+    pedidosZona.adicionar(
+      criarPedido(
+        { x: 6, y: 4, pesoKg: 1, prioridade: 'baixa' },
+        { limites: { capacidadeKg: 10, cidadeTamanho }, gerarId: () => 'pedido-zona-1' },
+      ),
+    );
+
+    await request(appComZonas).post('/entregas/alocar');
+    const resposta = await request(appComZonas).get('/entregas/rota').query({ caminho: 'true' });
+
+    expect(resposta.status).toBe(200);
+    const [viagem] = comoListaViagens(resposta.body);
+    expect(viagem?.caminho).toBeDefined();
+    for (const perna of viagem!.caminho!) {
+      for (const celula of perna.celulas) {
+        expect(mapaComZonas.bloqueada(celula)).toBe(false);
+      }
+    }
+    const distanciaDireta = 2 * 6; // 2 * |dx| Manhattan sem desvio da zona
+    expect(viagem?.distanciaQuadras).toBeGreaterThan(distanciaDireta);
+  });
+
+  it('caminho=true combina com status= sem conflito', async () => {
+    pedidos.adicionar(novoPedidoAjudante({ x: 1, y: 0, pesoKg: 3 }));
+    await request(app).post('/entregas/alocar');
+
+    const resposta = await request(app)
+      .get('/entregas/rota')
+      .query({ caminho: 'true', status: 'planejada' });
+
+    expect(resposta.status).toBe(200);
+    expect(comoListaViagens(resposta.body)).toHaveLength(1);
+    expect(comoListaViagens(resposta.body)[0]?.caminho).toBeDefined();
+  });
+});
+
 describe('DELETE /entregas/concluidas', () => {
   it('remove só as viagens concluídas', async () => {
     pedidos.adicionar(novoPedidoAjudante({ x: 1, y: 0, pesoKg: 3 }));

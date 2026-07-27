@@ -57,7 +57,7 @@ export function criarRotasEntregas(dependencias: DependenciasEntregas): Router {
       simulacao.recomputar();
 
       res.status(201).json({
-        viagens: resultado.viagens.map(paraRespostaViagem),
+        viagens: resultado.viagens.map((viagem) => paraRespostaViagem(viagem)),
         naoAlocados: resultado.naoAlocados,
       });
     } catch (erro) {
@@ -73,7 +73,10 @@ export function criarRotasEntregas(dependencias: DependenciasEntregas): Router {
         filtros.status === undefined
           ? todas
           : todas.filter((viagem) => viagem.status === filtros.status);
-      res.status(200).json(filtradas.map(paraRespostaViagem));
+      // Opt-in por design (D40): o caminho só entra quando pedido
+      // explicitamente, para não inflar o payload padrão de todo consumidor.
+      const opcoesResposta = filtros.caminho === 'true' ? { mapa } : undefined;
+      res.status(200).json(filtradas.map((viagem) => paraRespostaViagem(viagem, opcoesResposta)));
     } catch (erro) {
       next(erro);
     }

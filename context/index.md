@@ -1,6 +1,6 @@
 # Context Index — case_dti (DroneDelivery)
 
-> Artifact map. Updated: 2026-07-27 (v1.3)
+> Artifact map. Updated: 2026-07-27 (v1.4)
 
 ## Quick Navigation
 
@@ -20,7 +20,8 @@ No artifacts.
 
 | File                                          | Date       | Description                                  | Status |
 | --------------------------------------------- | ---------- | -------------------------------------------- | ------ |
-| `2026-07-27_Walkthrough_Bloco_6_Zonas_Exclusao.md` | 2026-07-27 | Épico E5: mapa, pathfinding BFS, motivos de inviabilidade e ADRs D36–D38 | atual |
+| `2026-07-27_Walkthrough_Bloco_7_Dashboard_Feedback.md` | 2026-07-27 | Épico E6: mapa legível, caminho observável, dashboard, rastreio e ADRs D39–D42 | atual |
+| `2026-07-27_Walkthrough_Bloco_6_Zonas_Exclusao.md` | 2026-07-27 | Épico E5: mapa, pathfinding BFS, motivos de inviabilidade e ADRs D36–D38 | anterior |
 | `2026-07-26_Walkthrough_Bloco_5_Simulacao.md` | 2026-07-26 | Épico E4: estados, motor de simulação, tempo, bateria e ADRs D30–D35 | anterior |
 | `2026-07-26_Walkthrough_Bloco_4_Alocacao.md`  | 2026-07-26 | Épico E3: viagem, greedy, roteamento e ADRs D25–D29 | anterior |
 | `2026-07-26_Walkthrough_Bloco_3_Frota.md`     | 2026-07-26 | Épico E2: frota da config, rotas de drone e ADR D24 | anterior |
@@ -42,12 +43,15 @@ No artifacts.
 | File                          | Responsibility                                              |
 | ----------------------------- | ----------------------------------------------------------- |
 | `src/api/server.ts`           | Recebe `Dependencias`; monta rotas, 404 e middleware de erro (nessa ordem) |
-| `src/api/rotas/pedidos.ts`    | As 4 rotas de pedido; repassa erros via `next`, sem tratá-los |
+| `src/api/rotas/pedidos.ts`    | As 4 rotas de pedido + `GET /:id/rastreio`; recebe dependências em objeto (E6-2) |
 | `src/api/rotas/drones.ts`     | As 2 rotas de consulta da frota (E2-2)                       |
 | `src/api/rotas/entregas.ts`   | `POST /alocar`, `GET /rota?status=` e `DELETE /concluidas`; grava pedidos antes das viagens (D26) |
 | `src/api/rotas/simulacao.ts`  | `GET /`, `POST /avancar` e `GET /eventos` (E4)               |
+| `src/api/rotas/mapa.ts`       | `GET /mapa` — malha, base e zonas, somente leitura (E6-3)    |
+| `src/api/rotas/dashboard.ts`  | `GET /dashboard` — serve a página HTML; sem `express.static` (D41) |
+| `src/api/apresentadores/mapa.ts` | `RespostaMapa`: `cidadeTamanho` + `base` + zonas          |
 | `src/api/apresentadores/drone.ts` | `RespostaDrone`: campos do domínio + `bateriaPercentual` derivado |
-| `src/api/apresentadores/viagem.ts` | `RespostaViagem`: campos do domínio + totais derivados na borda |
+| `src/api/apresentadores/viagem.ts` | `RespostaViagem`: totais derivados + `caminho` por perna, opcional (D40) |
 | `src/api/apresentadores/simulacao.ts` | `RespostaEvento` e `RespostaMetricas`                  |
 | `src/api/schemas/pedido.ts`   | Zod na borda: valida a forma, não a regra (D3, D23)          |
 | `src/api/schemas/simulacao.ts`| Zod do avanço (exatamente um entre `ateInstante` e `minutos`), recorte de eventos e filtro de viagem |
@@ -71,17 +75,23 @@ No artifacts.
 | -------------------------- | ----------------------------------------------------------- |
 | `src/domain/erros.ts`      | `ErroDominio` com código tipado; sem referência a HTTP       |
 | `src/domain/coordenada.ts` | Malha 2D, validação `0..N` e distância Manhattan             |
-| `src/domain/mapa.ts`       | `MapaCidade`: parser de zonas, células bloqueadas e distância por BFS memoizado por origem (D36–D38) |
+| `src/domain/mapa.ts`       | `MapaCidade`: parser de zonas, BFS memoizado por origem e o caminho por backtracking (D36–D39) |
+| `src/domain/rastreio.ts`   | Mensagem de status ao cliente, pura; degrada sem distância em vez de lançar (D42) |
 | `src/domain/pedido.ts`     | Tipo `Pedido`, prioridades, status e factory validante       |
 | `src/domain/drone.ts`      | Tipo `Drone`, frota homogênea, gerador de id sequencial e a tabela de transições (E4-1) |
 | `src/domain/viagem.ts`     | Tipo `Viagem`, status (D35), roteamento nearest-neighbor, guarda de invariante e reconciliação |
 | `src/domain/alocacao.ts`   | **Núcleo do case**: ordenação (D11) e empacotamento greedy (D9), puros |
-| `src/domain/simulacao.ts`  | Motor puro do E4: viagens → eventos com timestamps + métricas (D13, D14) |
+| `src/domain/simulacao.ts`  | Motor puro do E4: viagens → eventos com timestamps + métricas, incluindo eficiência (D13, D14, D19) |
 
 ### Serviços
 | File                      | Responsibility                                               |
 | ------------------------- | ------------------------------------------------------------ |
 | `src/servicos/simulacao.ts` | Relógio virtual e aplicação dos eventos aos 3 repositórios; sem regra própria (D30–D33) |
+
+### Dashboard
+| File                     | Responsibility                                            |
+| ------------------------ | ---------------------------------------------------------- |
+| `src/dashboard/pagina.ts`| HTML/CSS/SVG/JS inline como template string; zero host externo e zero asset em disco (D41) |
 
 ### Config
 | File                  | Responsibility                                  |
@@ -113,6 +123,8 @@ No artifacts.
 | Repositório  | `src/repositorio/*.test.ts`          | passing |
 | Serviços     | `src/servicos/*.test.ts`             | passing |
 | API          | `src/api/rotas/*.test.ts` (supertest)| passing |
+| Borda        | `src/api/apresentadores/*.test.ts`, `src/api/schemas/*.test.ts` | passing |
+| Dashboard    | `src/dashboard/pagina.test.ts`       | passing |
 
 > Toda implementação segue TDD: o teste falha antes do código que o faz passar.
 

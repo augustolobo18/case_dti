@@ -1,6 +1,6 @@
 # Timeline — case_dti (DroneDelivery)
 
-> Evolutionary history. 10 phases | Jul/2026.
+> Evolutionary history. 11 phases | Jul/2026.
 
 ## Phase 0: Inicialização (Jul/2026)
 
@@ -103,15 +103,28 @@
 - Duas limitações viraram histórias formais: E6-3 (expor zonas) e E6-4 (caminho observável) são pré-requisitos do dashboard, não dívida solta.
 - Detalhes: `context/walkthroughs/2026-07-27_Walkthrough_Bloco_6_Zonas_Exclusao.md`.
 
+## Phase 10: Bloco 7 — dashboard & feedback (Jul/2026)
+
+- Branch `feat/bloco-7`, sem commit até aqui.
+- Épico E6 completo: mapa legível pela API, caminho observável, dashboard web e rastreio ao cliente.
+- O caminho virou contrato público sem virar dado persistido — derivado do mesmo campo de distâncias do Bloco 6.
+- `campoDistanciasDe` extraído para que `distancia` e `caminho` não possam divergir quanto ao desvio; foi a peça que o plano não previu.
+- Caminho canônico eleito por regra explícita, reusando o desempate D12 do roteamento em vez de depender da ordem da fila do BFS (D39).
+- Caminho exposto como opt-in (D40): a listagem de viagens segue sem paginação, e o payload padrão não mudou.
+- Dashboard entregue como módulo TS com HTML embutido (D41) porque `tsc` não copia `.html` — evitou script de cópia e um ponto novo de falha no CI.
+- Rastreio adotou a distância real do mapa e degrada em vez de falhar, atualizando um critério de aceite escrito antes de D36 (D42).
+- Segundo bloco executado por subagente a partir do plano aprovado; os dois desvios foram mecânicos, sem decisão de projeto.
+- Detalhes: `context/walkthroughs/2026-07-27_Walkthrough_Bloco_7_Dashboard_Feedback.md`.
+
 ## Metrics Snapshot (2026-07-27)
 
 | Métrica            | Valor                          |
 | ------------------ | ------------------------------ |
 | Linguagem          | TypeScript (ESM)               |
 | Runtime            | Node.js 24 LTS (>= 20.12)      |
-| Fases              | ~10 (init + setup + planejamento + bloco 1 + ferramental + blocos 2-6) |
-| Backlog            | 8 épicos; E1-E5 e E7 concluídos; E6 ganhou 2 habilitadores; ADRs em docs/DECISIONS.md |
-| API                | 4 rotas de pedido + 2 de drone + 3 de entrega + 3 de simulação + `/health` |
-| Testes             | passing (~18 arquivos); cobertura total ~98%, domínio ~98,5% |
+| Fases              | ~11 (init + setup + planejamento + bloco 1 + ferramental + blocos 2-7) |
+| Backlog            | 8 épicos; E1-E7 concluídos; resta E8-2 (carga); ADRs em docs/DECISIONS.md |
+| API                | 5 rotas de pedido + 2 de drone + 3 de entrega + 3 de simulação + `/mapa` + `/dashboard` + `/health` |
+| Testes             | passing (~25 arquivos); cobertura total ~97%, domínio ~98% |
 | Verificação        | typecheck, lint, format, testes e build verdes no CI |
-| Git                | main com 9 PRs mergeados, working tree limpo; sem branch de feature aberta |
+| Git                | main com 9 PRs mergeados; bloco 7 pronto em `feat/bloco-7`, sem commit |

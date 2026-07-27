@@ -40,7 +40,7 @@ Escopo **completo** comprometido no MVP (núcleo + todos os diferenciais). A pri
 | 4 | Alocação (núcleo do case) | E3-1, E3-2, E3-3 |
 | 5 | Simulação & estados | E4-1, E4-2, E4-3 |
 | 6 | Zonas de exclusão | E5-2 (pathfinding) |
-| 7 | Dashboard & feedback | E6-1, E6-2 |
+| 7 | Dashboard & feedback | E6-3, E6-4 (habilitadores), E6-1, E6-2 |
 | — | Transversais (ao longo de tudo) | E7-1 erros, E7-2 README, E8-1 testes |
 | 8 | Fechamento | E8-2 simulação de carga |
 
@@ -248,6 +248,7 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 - Exibe: quantidade de entregas realizadas, tempo médio por entrega, drone mais eficiente e um mapa das entregas.
 - "Drone mais eficiente" = entregas concluídas ÷ distância total percorrida (ver D19).
 - O mapa mostra base, clientes, zonas de exclusão (E5) e, idealmente, as rotas.
+- Depende de **E6-3** (zonas legíveis pelo cliente) e, para desenhar rotas corretas, de **E6-4**.
 - _A refinar na implementação:_ visual do mapa (grade HTML/SVG vs ASCII embutido), atualização estática vs. viva.
 
 ### E6-2 — Feedback ao cliente 🔲
@@ -261,6 +262,37 @@ derivado do estado do drone que o carrega. A máquina de estados completa do dro
 - Status `entregue` e `pendente`/`alocado` têm mensagens próprias e claras.
 - `id` inexistente retorna erro claro.
 - _A refinar na implementação:_ texto exato das mensagens; faixas (ex.: "chegando" quando ≤ 1 quadra).
+
+> **Pré-requisitos técnicos do E6-1.** As duas histórias abaixo são habilitadores identificados no
+> Bloco 6: sem elas o dashboard desenha um mapa incompleto (sem zonas) ou incorreto (rotas em linha
+> reta atravessando zonas). Detalhe: `context/walkthroughs/2026-07-27_Walkthrough_Bloco_6_Zonas_Exclusao.md` §4.
+
+### E6-3 — Zonas de exclusão legíveis pela API 🔲
+
+> **Como** Operador, **quero** consultar as zonas de exclusão configuradas, **para** que o
+> dashboard consiga desenhá-las no mapa.
+
+**Critérios de aceite:**
+- Uma rota de consulta devolve as zonas configuradas e o tamanho da malha.
+- Resposta reflete a config do processo; sem zonas configuradas, devolve lista vazia (não erro).
+- Somente leitura — zonas continuam vindo do `.env` e não são editáveis por API (ver D8/D37).
+- _Nota:_ o dado já está em `Dependencias.mapa`; falta apenas a rota e o apresentador.
+
+### E6-4 — Caminho percorrido observável 🔲
+
+> **Como** Operador, **quero** ver o trajeto que o drone realmente percorre entre duas paradas,
+> **para** que o mapa mostre o desvio em volta das zonas em vez de uma linha reta por cima delas.
+
+**Critérios de aceite:**
+- É possível obter a sequência de células entre duas paradas de uma viagem, contornando as zonas.
+- O caminho é derivado do mapa, não persistido (mesma lógica de D31/D37).
+- O caminho é **determinístico**: entre vários caminhos de mesmo comprimento, um é eleito por regra
+  explícita de desempate — dois boots do mesmo estado produzem o mesmo trajeto.
+- Sem zonas configuradas, o caminho coincide com o trajeto Manhattan direto.
+- **Exige ADR:** qual dos caminhos mínimos é o canônico (candidato natural: o desempate de D12 —
+  menor `x`, depois menor `y`).
+- _A refinar na implementação:_ se o caminho entra no payload da viagem, dos eventos ou de uma rota
+  própria — `GET /simulacao/eventos` já é a rota de maior volume e segue sem paginação (E8-2).
 
 ---
 

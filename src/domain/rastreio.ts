@@ -38,7 +38,9 @@ function mensagemEmVooComDistancia(distanciaQuadras: number): string {
   if (distanciaQuadras <= QUADRAS_FAIXA_CHEGANDO) {
     return 'Seu pacote está chegando!';
   }
-  return `Seu pacote está a ${distanciaQuadras} quadra${distanciaQuadras === 1 ? '' : 's'} de você.`;
+  // A faixa "chegando" acima já cobre <= 1, então este ramo só é alcançado
+  // com distância >= 2 — plural fixo, sem ternário morto.
+  return `Seu pacote está a ${distanciaQuadras} quadras de você.`;
 }
 
 /** Mensagem de `em_voo` quando a distância não pôde ser calculada — degrada, não lança. */

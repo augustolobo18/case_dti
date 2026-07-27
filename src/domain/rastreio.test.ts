@@ -107,6 +107,37 @@ describe('montarRastreio — uma mensagem própria por status', () => {
     expect(rastreio.mensagem.length).toBeGreaterThan(0);
   });
 
+  it('em_voo a 2 quadras do cliente usa plural na mensagem', () => {
+    const pedido = novoPedido('em_voo');
+    // (5,5) -> destino (5,5) do pedido de teste é fixo em x:5,y:5; drone a 2 quadras de distância.
+    const drone = novoDrone({ x: 3, y: 5 });
+
+    const rastreio = montarRastreio({ pedido, drone, mapa: MAPA_SEM_ZONAS });
+
+    expect(rastreio.distanciaQuadras).toBe(2);
+    expect(rastreio.mensagem).toContain('a 2 quadras de você');
+  });
+
+  it('em_voo a 5 quadras do cliente usa plural na mensagem', () => {
+    const pedido = novoPedido('em_voo');
+    const drone = novoDrone({ x: 0, y: 5 });
+
+    const rastreio = montarRastreio({ pedido, drone, mapa: MAPA_SEM_ZONAS });
+
+    expect(rastreio.distanciaQuadras).toBe(5);
+    expect(rastreio.mensagem).toContain('a 5 quadras');
+  });
+
+  it('em_voo a 1 quadra ou menos continua caindo na faixa "chegando" (regressão)', () => {
+    const pedido = novoPedido('em_voo');
+    const drone = novoDrone({ x: 4, y: 5 }); // 1 quadra de distância
+
+    const rastreio = montarRastreio({ pedido, drone, mapa: MAPA_SEM_ZONAS });
+
+    expect(rastreio.distanciaQuadras).toBe(1);
+    expect(rastreio.mensagem.toLowerCase()).toContain('chegando');
+  });
+
   it('em_voo sem rota até o cliente degrada para mensagem sem distância, não lança', () => {
     const zonas: ZonaExclusao[] = [{ de: { x: 5, y: 5 }, ate: { x: 5, y: 5 } }];
     const mapa = criarMapaCidade({ cidadeTamanho: 20, zonas });

@@ -208,4 +208,122 @@ describe('criarRepositorioPedidos', () => {
     expect(resultado.every((p) => p.status === 'entregue')).toBe(true);
     expect(repositorio.buscarPorId(a.id).status).toBe('entregue');
   });
+
+  describe('emLote — modo de lote (D43)', () => {
+    it('duas mutações dentro de emLote geram 1 chamada de salvar; fora dele, 2', () => {
+      const persistencia = criarPersistenciaMemoria();
+      let chamadasSalvar = 0;
+      const persistenciaEspiada = {
+        carregar: () => persistencia.carregar(),
+        salvar: (pedidosParaSalvar: readonly ReturnType<typeof novoPedido>[]) => {
+          chamadasSalvar += 1;
+          persistencia.salvar([...pedidosParaSalvar]);
+        },
+      };
+      const repositorio = criarRepositorioPedidos(persistenciaEspiada);
+      const a = novoPedido();
+      const b = novoPedido();
+      repositorio.adicionar(a);
+      repositorio.adicionar(b);
+      chamadasSalvar = 0;
+
+      repositorio.emLote(() => {
+        repositorio.marcarComoAlocados([a.id]);
+        repositorio.despachar([a.id]);
+      });
+      expect(chamadasSalvar).toBe(1);
+
+      chamadasSalvar = 0;
+      repositorio.marcarComoAlocados([b.id]);
+      repositorio.despachar([b.id]);
+      expect(chamadasSalvar).toBe(2);
+    });
+
+    it('leitura dentro do lote enxerga a mutação anterior (memória imediata)', () => {
+      const repositorio = criarRepositorioPedidos(criarPersistenciaMemoria());
+      const a = novoPedido();
+      repositorio.adicionar(a);
+
+      repositorio.emLote(() => {
+        repositorio.marcarComoAlocados([a.id]);
+        expect(repositorio.buscarPorId(a.id).status).toBe('alocado');
+      });
+    });
+
+    it('emLote que lança propaga a exceção e ainda assim grava uma vez (finally)', () => {
+      const persistencia = criarPersistenciaMemoria();
+      let chamadasSalvar = 0;
+      const persistenciaEspiada = {
+        carregar: () => persistencia.carregar(),
+        salvar: (pedidosParaSalvar: readonly ReturnType<typeof novoPedido>[]) => {
+          chamadasSalvar += 1;
+          persistencia.salvar([...pedidosParaSalvar]);
+        },
+      };
+      const repositorio = criarRepositorioPedidos(persistenciaEspiada);
+      const a = novoPedido();
+      repositorio.adicionar(a);
+      chamadasSalvar = 0;
+
+      expect.assertions(2);
+      try {
+        repositorio.emLote(() => {
+          repositorio.marcarComoAlocados([a.id]);
+          throw new Error('falha proposital dentro do lote');
+        });
+      } catch (erro) {
+        expect((erro as Error).message).toBe('falha proposital dentro do lote');
+      }
+      expect(chamadasSalvar).toBe(1);
+    });
+
+    it('emLote aninhado só grava no lote mais externo', () => {
+      const persistencia = criarPersistenciaMemoria();
+      let chamadasSalvar = 0;
+      const persistenciaEspiada = {
+        carregar: () => persistencia.carregar(),
+        salvar: (pedidosParaSalvar: readonly ReturnType<typeof novoPedido>[]) => {
+          chamadasSalvar += 1;
+          persistencia.salvar([...pedidosParaSalvar]);
+        },
+      };
+      const repositorio = criarRepositorioPedidos(persistenciaEspiada);
+      const a = novoPedido();
+      const b = novoPedido();
+      repositorio.adicionar(a);
+      repositorio.adicionar(b);
+      chamadasSalvar = 0;
+
+      repositorio.emLote(() => {
+        repositorio.marcarComoAlocados([a.id]);
+        repositorio.emLote(() => {
+          repositorio.marcarComoAlocados([b.id]);
+        });
+      });
+
+      expect(chamadasSalvar).toBe(1);
+    });
+
+    it('emLote sem nenhuma mutação não grava nada', () => {
+      const persistencia = criarPersistenciaMemoria();
+      let chamadasSalvar = 0;
+      const persistenciaEspiada = {
+        carregar: () => persistencia.carregar(),
+        salvar: (pedidosParaSalvar: readonly ReturnType<typeof novoPedido>[]) => {
+          chamadasSalvar += 1;
+          persistencia.salvar([...pedidosParaSalvar]);
+        },
+      };
+      const repositorio = criarRepositorioPedidos(persistenciaEspiada);
+      const a = novoPedido();
+      repositorio.adicionar(a);
+      chamadasSalvar = 0;
+
+      repositorio.emLote(() => {
+        repositorio.buscarPorId(a.id);
+      });
+
+      expect(chamadasSalvar).toBe(0);
+    });
+  });
 });

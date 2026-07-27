@@ -12,6 +12,14 @@ export type RepositorioViagens = {
   listar(): Viagem[];
   substituirTodas(viagens: readonly Viagem[]): Viagem[];
   pedidoIdsOrfaos(): string[];
+  /**
+   * Executa `fn` em modo de lote (D43): mutações dentro de `fn` continuam
+   * mudando a memória imediatamente, mas a gravação em disco é adiada para o
+   * fim de `fn` — uma única chamada a `salvar`, em vez de uma por mutação.
+   * Reentrante: só o lote mais externo grava. Se `fn` lançar, a exceção
+   * propaga e o progresso mutado até ali ainda é gravado (`finally`).
+   */
+  emLote<T>(fn: () => T): T;
 };
 
 /**
@@ -30,8 +38,39 @@ export function criarRepositorioViagens(opcoes: OpcoesRepositorioViagens): Repos
 
   let viagens: Viagem[] = [...reconciliadas];
 
+  // Gravação da reconciliação do boot (D27): acontece aqui, na criação, fora
+  // de qualquer emLote — não passa por `persistir()`/`adiandoGravacao`.
   if (pedidoIdsOrfaos.length > 0) {
     persistencia.salvar(viagens);
+  }
+
+  let adiandoGravacao = false;
+  let sujo = false;
+
+  /** Ponto único de gravação write-through das mutações pós-boot (D43). */
+  function persistir(): void {
+    if (adiandoGravacao) {
+      sujo = true;
+      return;
+    }
+    persistencia.salvar(viagens);
+  }
+
+  function emLote<T>(fn: () => T): T {
+    if (adiandoGravacao) {
+      // Reentrante: só o lote mais externo grava.
+      return fn();
+    }
+    adiandoGravacao = true;
+    try {
+      return fn();
+    } finally {
+      adiandoGravacao = false;
+      if (sujo) {
+        sujo = false;
+        persistencia.salvar(viagens);
+      }
+    }
   }
 
   return {
@@ -41,12 +80,14 @@ export function criarRepositorioViagens(opcoes: OpcoesRepositorioViagens): Repos
 
     substituirTodas(novasViagens: readonly Viagem[]): Viagem[] {
       viagens = [...novasViagens];
-      persistencia.salvar(viagens);
+      persistir();
       return [...viagens];
     },
 
     pedidoIdsOrfaos(): string[] {
       return [...pedidoIdsOrfaos];
     },
+
+    emLote,
   };
 }

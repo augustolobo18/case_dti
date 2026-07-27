@@ -1,6 +1,6 @@
 # Timeline — case_dti (DroneDelivery)
 
-> Evolutionary history. 11 phases | Jul/2026.
+> Evolutionary history. 12 phases | Jul/2026.
 
 ## Phase 0: Inicialização (Jul/2026)
 
@@ -116,15 +116,26 @@
 - Segundo bloco executado por subagente a partir do plano aprovado; os dois desvios foram mecânicos, sem decisão de projeto.
 - Detalhes: `context/walkthroughs/2026-07-27_Walkthrough_Bloco_7_Dashboard_Feedback.md`.
 
+## Phase 11: Saneamento de dívidas (Jul/2026)
+
+- Commit: bfe951b, branch `chore/saneamento-dividas` sobre `feat/bloco-7`.
+- Três dívidas do metaspec fechadas sem mudar contrato de rota nem formato de arquivo em disco.
+- Ramo morto do plural em `rastreio.ts` removido; os 100% de branches são a prova de que era inalcançável.
+- Repositórios ganharam `emLote`: o avanço do relógio grava cada arquivo uma vez, não uma por evento (D43).
+- Escopo do lote incluiu pedidos, não só viagens: era ali o termo dominante do O(n²), 1 gravação por entrega.
+- Adia-se só a escrita, nunca a mutação em memória — é dela que o early-return de `atualizarStatusViagem` depende.
+- Viagem de drone ausente da frota passou a falhar alto com `VIAGEM_INCONSISTENTE`, em vez de ser pulada (D44).
+- Primeira leva de trabalho nascida de investigação de dívida, não do backlog.
+
 ## Metrics Snapshot (2026-07-27)
 
 | Métrica            | Valor                          |
 | ------------------ | ------------------------------ |
 | Linguagem          | TypeScript (ESM)               |
 | Runtime            | Node.js 24 LTS (>= 20.12)      |
-| Fases              | ~11 (init + setup + planejamento + bloco 1 + ferramental + blocos 2-7) |
+| Fases              | ~12 (init + setup + planejamento + bloco 1 + ferramental + blocos 2-7 + saneamento) |
 | Backlog            | 8 épicos; E1-E7 concluídos; resta E8-2 (carga); ADRs em docs/DECISIONS.md |
 | API                | 5 rotas de pedido + 2 de drone + 3 de entrega + 3 de simulação + `/mapa` + `/dashboard` + `/health` |
 | Testes             | passing (~25 arquivos); cobertura total ~97%, domínio ~98% |
 | Verificação        | typecheck, lint, format, testes e build verdes no CI |
-| Git                | main com 9 PRs mergeados; bloco 7 pronto em `feat/bloco-7`, sem commit |
+| Git                | main com 9 PRs mergeados; `feat/bloco-7` e `chore/saneamento-dividas` commitadas, ainda não publicadas |
